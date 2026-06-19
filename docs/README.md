@@ -26,6 +26,13 @@
 - [bot-fsm/form-fsm.md](bot-fsm/form-fsm.md) — слой 1: сбор данных заказа.
 - [bot-fsm/tracking-fsm.md](bot-fsm/tracking-fsm.md) — слой 3: сопровождение заказа (реакция на FSM заказа).
 
-## Дальше (планируется)
-- `gap-analysis.md` — анализ кода ботов и выбор базы (Этап 5).
-- `implementation-plan.md` — план реализации/миграции (Этап 6).
+## Этап 5 — Gap-анализ и выбор базы ✅
+- [gap-analysis.md](gap-analysis.md) — сравнение WATaxiBot vs MultiBot, рекомендация базы.
+
+## Этап 6 — План реализации ✅
+- [implementation-plan.md](implementation-plan.md) — блоки A–E, MVP-срез, граф зависимостей.
+
+---
+
+**Все 6 этапов документации завершены.** Дальше — утверждение базы заказчиком, ответы бэкенд-команды
+(ветки VOTE/OFFER), переход к реализации по [implementation-plan.md](implementation-plan.md).
