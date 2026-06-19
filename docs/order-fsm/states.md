@@ -20,17 +20,17 @@
 ## 2. Наблюдаемый FSM (текущий бэкенд) — то, что реализуем сейчас
 
 ### Состояния
-| Состояние | Вход (событие) | Смысл |
+| Состояние | Вход (событие) | Смысл (поля бэкенда) |
 |---|---|---|
-| `SEARCHING` | `PROCESSING` | Идёт поиск/ожидание исполнителя |
-| `ASSIGNED` | `APPROVED` | Водитель назначен (`c_appointed`) |
-| `DRIVER_ARRIVED` | `DRIVER_ARRIVED` | Водитель прибыл (`c_arrived`) |
-| `IN_RIDE` | `DRIVER_STARTED` | Поездка идёт (`c_started`) |
-| `COMPLETED` ⛔ | `COMPLETED` | Поездка завершена (`c_completed` / `b_state=4`) |
-| `CANCELLED` ⛔ | `CANCELED` / `DRIVER_CANCELED` | Отменён (клиентом/системой/водителем) |
+| `SEARCHING` | `PROCESSING` | Идёт поиск/ожидание исполнителя (`b_state` 1; OFFER — `b_state=6`) |
+| `ASSIGNED` | `APPROVED` | Водитель назначен (`b_state=2`, `c_state=3`) |
+| `DRIVER_ARRIVED` | `DRIVER_ARRIVED` | Водитель прибыл (`c_state=4`) |
+| `IN_RIDE` | `DRIVER_STARTED` | Поездка идёт (`c_state=5`) |
+| `COMPLETED` ⛔ | `COMPLETED` | Поездка завершена (`c_state=6` / `b_state=4`) |
+| `CANCELLED` ⛔ | `CANCELED` / `DRIVER_CANCELED` | Отменён (`b_state=3` / `c_state=2`) |
 | `EXPIRED` ⛔ | `OUT_OF_TIME` | Истёк таймер ожидания |
 
-⛔ — терминальное.
+⛔ — терминальное. Маппинг `b_state`/`c_state` — [backend-mapping.md](backend-mapping.md) §2–4.
 
 ### Диаграмма (наблюдаемый)
 

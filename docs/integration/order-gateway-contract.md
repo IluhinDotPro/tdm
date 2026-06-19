@@ -31,10 +31,11 @@ FSM бота ◄──event──── OrderGateway ◄── [Poller: deriveEv
 interface OrderGateway {
   // команды (см. order-fsm/commands.md)
   createOrder(params: OrderParams): Promise<{ orderId: string }>;
-  cancelOrder(orderId: string, reason: string): Promise<void>;
-  selectCandidate(orderId: string, driverId: string): Promise<void>;   // VOTE
-  selectOffer(orderId: string, offerId: string): Promise<void>;        // OFFER
-  confirmBoarding(orderId: string, code: string): Promise<void>;       // VOTE/внешний
+  cancelOrder(orderId: string, reason: string): Promise<void>;         // → action=set_cancel_state
+  selectCandidate(orderId: string, driverId: string): Promise<void>;   // VOTE  → set_performer/performer=1/u_id
+  selectOffer(orderId: string, driverId: string): Promise<void>;       // OFFER → тот же set_performer (driverId, не offerId)
+  clearSelection(orderId: string, driverId: string): Promise<void>;    // → set_performer/performer=0/u_id
+  confirmBoarding(orderId: string, code: string): Promise<void>;       // VOTE → b_driver_code
   setRate(orderId: string, rate: number): Promise<void>;
   setReview(orderId: string, text: string): Promise<void>;
 
@@ -81,12 +82,15 @@ interface OrderSnapshot {
   state: OrderObservedState;            // SEARCHING | ASSIGNED | ...
   driver?: { name?: string; phone?: string; car?: string; plate?: string };
   price?: { estimated?: number; final?: number };
-  candidates?: Array<{ driverId: string; ... }>;   // VOTE (когда бэкенд отдаёт)
-  offers?: Array<{ offerId: string; driverId: string; price: number }>; // OFFER
+  candidates?: Array<{ driverId: string; carId?: string }>;   // VOTE: drivers[] где c_state==1
+  offers?: Array<{ driverId: string; price: number; eta?: string; comment?: string }>; // OFFER: c_options.performers_price/...
   pickup?: { requested?: Location; actual?: Location };
 }
 ```
-Поллер уже держит сырой ответ API — наполнить снимок дешево.
+Поллер уже держит сырой ответ API — наполнить снимок дешево. ✅ Источники подтверждены:
+кандидаты = `drivers[]` где `c_state==1`; цена/ETA/коммент оффера = их `c_options.{performers_price,
+driver_offer_eta, driver_offer_comment}` (backend-mapping §3, §6). У оффера нет отдельного `offerId` —
+ключ выбора = `driverId` (`u_id`).
 
 ---
 
@@ -124,7 +128,7 @@ sequenceDiagram
         end
     end
     Bot->>GW: cancelOrder(orderId, reason)
-    GW->>API: POST /drive/cancel
+    GW->>API: POST /drive/get/{id} (action=set_cancel_state)
     GW-->>Bot: onOrderEvent(order_status_canceled) + unwatch
 ```
 
@@ -146,6 +150,7 @@ sequenceDiagram
 ---
 
 ## Открытые вопросы
-- Чтение состава кандидатов/предложений для `snapshot.candidates/offers` (backend-mapping §6).
-- Персистентность реестра наблюдения (Redis) — обязательна для надёжности при рестарте.
-- Нужна ли команда `updatePickupLocation` (изменение точки до старта).
+- ✅ Чтение состава кандидатов/предложений для `snapshot.candidates/offers` — `drivers[]` + `c_options` (backend-mapping §3, §6).
+- ✅ `updatePickupLocation` — отдельной команды на бэкенде нет; из контракта убираем (или отдельно к бэкенду).
+- Персистентность реестра наблюдения (Redis) — обязательна для надёжности при рестарте (без изменений).
+- ⏳ Уточнить у бэкенда отдельную семантику принятия оффера/контр-цены, помимо `set_performer`.
