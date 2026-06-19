@@ -51,16 +51,19 @@
 
 ## 2. Этапы работ
 
-### Этап 1 — Доменный фундамент (документация)
+### Этап 1 — Доменный фундамент (документация) ✅ ГОТОВО
 **Цель:** единая непротиворечивая модель, на которую опирается весь проект.
-*(grok1.txt прямо указал на расхождения между документами — устраняем их здесь.)*
+*(grok1.txt прямо указал на расхождения между документами — устранены здесь.)*
 
-- [ ] **1.1 Glossary** — единый словарь терминов (Order, Candidate, Offer, PoolVisibility, AssignedDriver, ActualCarrier, BoardingVerification, ExecutionOutcome…). Свести терминологию переписки + gpt3 + grok.
-- [ ] **1.2 Доменная модель заказа** — структура Order (маршрут, тип поездки, класс, requirements HARD_FILTER/SOFT_SCORE, цены, таймстемпы, геолокация requested vs actual).
-- [ ] **1.3 Модели исполнения** — DIRECT / VOTE / OFFER: участники, этапы, события, варианты завершения, таблица различий.
-- [ ] **1.4 Carrier Determination** — детально (главный пробел по grok): стратегии ClientManualSelection / FirstArrived / AnyArrived / ExternalCarrier; когда CandidateSelected → DriverAssigned.
+- [x] **1.1 Glossary** — единый словарь терминов. → `docs/domain/glossary.md`
+- [x] **1.2 Доменная модель заказа** — структура Order. → `docs/domain/order-model.md`
+- [x] **1.3 Модели исполнения** — DIRECT / VOTE / OFFER. → `docs/domain/execution-models.md`
+- [x] **1.4 Carrier Determination** — стратегии + когда CandidateSelected → DriverAssigned. → `docs/domain/execution-models.md` §6
 
-**Результат:** `docs/domain/` (glossary.md, order-model.md, execution-models.md).
+**Результат:** `docs/domain/` (glossary.md, order-model.md, execution-models.md). ✅
+
+> Расхождение PoolVisibility / CandidatePool / candidateDrivers сведено в execution-models.md §1.
+> Открытые бизнес-вопросы (ценообразование, отмены, оплата, SOS) вынесены в конец order-model.md и execution-models.md.
 
 ---
 
