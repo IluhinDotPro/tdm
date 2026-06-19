@@ -11,7 +11,8 @@
 - [domain/execution-models.md](domain/execution-models.md) — модели исполнения DIRECT / VOTE / OFFER + Carrier Determination.
 
 ## Этап 2 — Спецификация FSM заказа (внешний) ✅
-- [order-fsm/backend-mapping.md](order-fsm/backend-mapping.md) — текущий бэкенд iBronevik (`b_state`+`c_*`) → доменная модель.
+- [order-fsm/backend-mapping.md](order-fsm/backend-mapping.md) — текущий бэкенд iBronevik (`b_state`+`c_state`) → доменная модель.
+- [order-fsm/api-payload-reference.md](order-fsm/api-payload-reference.md) — ⭐ авторитетный контракт payload/actions API (из дампа серверного FSM).
 - [order-fsm/states.md](order-fsm/states.md) — состояния и переходы (наблюдаемый + целевой FSM).
 - [order-fsm/events.md](order-fsm/events.md) — каталог событий `order_status_*` + payload.
 - [order-fsm/commands.md](order-fsm/commands.md) — команды бот → заказ.
