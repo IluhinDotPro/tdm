@@ -114,16 +114,20 @@ system-events в FSM). WATaxiBot — production-источник истины п
 
 ---
 
-### Этап 4 — Спецификация FSM интерфейса бота (ОСНОВНАЯ ЗАДАЧА)
-**Цель:** формальное описание двух ботовых FSM.
+### Этап 4 — Спецификация FSM интерфейса бота (ОСНОВНАЯ ЗАДАЧА) ✅ ГОТОВО
+**Цель:** формальное описание двух ботовых FSM. Привязано к реальному DSL (`main.json`/`order.json`).
 
-- [ ] **4.1 FSM формы (слой 1)** — состояния сбора данных заказа: from → to → people → when → options → carClass → confirm. Раздельно user-events и validation. Очищены от доменной логики заказа.
-- [ ] **4.2 FSM сопровождения (слой 3)** — состояния после создания заказа: searching → assigned → driverArrived → inRide → finished → rate; ветки VOTE (выбор кандидата) / OFFER (выбор предложения) / отмены / таймауты. Входы — события из контракта (Этап 3).
-- [ ] **4.3 Введение Guard в DSL** — `order.hasPhone == true`, `driverCount > 0` и т.п. (gpt1/gpt2 указали на отсутствие Guard).
-- [ ] **4.4 Единая модель событий** — явное разделение UI Event / Domain Event / System Event (ключевая рекомендация gpt2).
-- [ ] **4.5 Cross-flow переходы** — формализовать переходы между flows (сейчас `{{link:order#approved}}`).
+- [x] **4.1 FSM формы (слой 1)** — from→to→people→carClass→options→when→mode→(offerPrice)→confirm; очищена от «протечек» домена. → `docs/bot-fsm/form-fsm.md`
+- [x] **4.2 FSM сопровождения (слой 3)** — наблюдаемый трек (start→approved→…→completed→review, cancelReason) + ветки VOTE/OFFER как расширение. → `docs/bot-fsm/tracking-fsm.md`
+- [x] **4.3 Guard в DSL** — синтаксис, правила выбора перехода, примеры для ТДМ. → `docs/bot-fsm/dsl-spec.md` §3
+- [x] **4.4 Единая модель событий** — UI / System / Domain, конвенция именования, обработка гонок. → `docs/bot-fsm/event-model.md`
+- [x] **4.5 Cross-flow переходы** — формализованы (полный id `flow.state`, как в реальном коде). → `docs/bot-fsm/dsl-spec.md` §1
 
-**Результат:** `docs/bot-fsm/` (form-fsm.md, tracking-fsm.md, dsl-spec.md) + JSON-схемы-черновики.
+**Результат:** `docs/bot-fsm/` (dsl-spec, event-model, form-fsm, tracking-fsm). ✅
+
+> Ветки VOTE/OFFER в сопровождении — поверх чтения `OrderSnapshot.candidates/offers`; активируются
+> после ответа бэкенд-команды (ROADMAP §4). Базовый трек от них не зависит.
+> JSON-схемы-черновики (реализация спеки) — отнесены к Этапу 6.
 
 ---
 

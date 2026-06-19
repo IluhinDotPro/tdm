@@ -20,7 +20,12 @@
 ## Этап 3 — Контракт интеграции ✅
 - [integration/order-gateway-contract.md](integration/order-gateway-contract.md) — порт `OrderGateway`, маппинг, гарантии доставки.
 
+## Этап 4 — FSM интерфейса бота (основная задача) ✅
+- [bot-fsm/dsl-spec.md](bot-fsm/dsl-spec.md) — DSL: состояния, validation, Guard, cross-flow, actions.
+- [bot-fsm/event-model.md](bot-fsm/event-model.md) — единая модель событий UI / System / Domain.
+- [bot-fsm/form-fsm.md](bot-fsm/form-fsm.md) — слой 1: сбор данных заказа.
+- [bot-fsm/tracking-fsm.md](bot-fsm/tracking-fsm.md) — слой 3: сопровождение заказа (реакция на FSM заказа).
+
 ## Дальше (планируется)
-- `bot-fsm/` — спецификация FSM интерфейса бота (Этап 4) ← основная задача.
 - `gap-analysis.md` — анализ кода ботов и выбор базы (Этап 5).
 - `implementation-plan.md` — план реализации/миграции (Этап 6).
