@@ -1,0 +1,14 @@
+{
+  "_note": "ЧЕРНОВИК. Конфигурация тенанта ТДМ. См. ../docs/bot-fsm/.",
+  "initialState": "registration.start",
+  "actions": {},
+  "flowSelection": {
+    "strategy": "first_match",
+    "flows": [
+      { "name": "form", "condition": "isRegistered && !isDeleted", "default": false },
+      { "name": "registration", "condition": "!isRegistered || isDeleted", "default": true }
+    ]
+  },
+  "_note_flowSelection": "Зарегистрированный пользователь начинает в form.start (создание заказа/меню); иначе — registration.start. flowSelection пока не исполняется движком (структура подготовлена) — блок A.",
+  "_flows": ["form", "order", "registration", "settings"]
+}

@@ -1,0 +1,283 @@
+{
+  "name": "form",
+  "description": "ЧЕРНОВИК. Слой 1 — FSM формы: сбор параметров заказа такси. См. ../docs/bot-fsm/form-fsm.md. Завершается командой createOrder и cross-flow в order.start.",
+  "actions": {
+    "sendDefaultMenu": { "type": "sendL10n", "params": { "key": "wab_defaultPrompt", "lang": { "var": "user.lang" } } },
+    "sendHelp": { "type": "sendL10n", "params": { "key": "wab_help", "lang": { "var": "user.lang" } } },
+    "sendCommandNotFound": { "type": "sendL10n", "params": { "key": "wab_commandNotFound", "lang": { "var": "user.lang" } } },
+    "sendOrderCanceled": { "type": "sendL10n", "params": { "key": "wab_orderCanceled", "lang": { "var": "user.lang" } } },
+    "clearOrderData": { "type": "clearOrderData" },
+
+    "sendFrom": { "type": "sendL10n", "params": { "key": "wab_enterStartPoint", "lang": { "var": "user.lang" } } },
+    "sendFromHelp": { "type": "sendL10n", "params": { "key": "wab_helpStartPoint", "lang": { "var": "user.lang" } } },
+    "saveFrom": { "type": "save", "params": { "var": { "type": "order", "name": "from" } } },
+
+    "sendTo": { "type": "sendL10n", "params": { "key": "wab_enterDestination", "lang": { "var": "user.lang" } } },
+    "saveTo": { "type": "save", "params": { "var": { "type": "order", "name": "to" } } },
+
+    "sendPeople": { "type": "sendL10n", "params": { "key": "wab_enterPeopleCount", "lang": { "var": "user.lang" } } },
+    "savePeople": { "type": "save", "params": { "var": { "type": "order", "name": "peopleCount" } } },
+    "sendPeopleError": { "type": "sendL10n", "params": { "key": "wab_peopleCountMustBeNumber", "lang": { "var": "user.lang" } } },
+
+    "sendCarClass": { "type": "sendL10n", "params": { "key": "wab_selectCarClass", "lang": { "var": "user.lang" } } },
+    "saveCarClass": { "type": "save", "params": { "var": { "type": "order", "name": "carClass" } } },
+
+    "sendNeedOptionsQuestion": { "type": "sendL10n", "params": { "key": "wab_needAdditionalOptionsQuestion", "lang": { "var": "user.lang" } } },
+    "sendSelectOptions": { "type": "sendSelectRequirements", "params": { "lang": { "var": "user.lang" } } },
+    "sendOptionsError": { "type": "sendL10n", "params": { "key": "wab_collectionAdditionalOptionsError", "lang": { "var": "user.lang" } } },
+
+    "sendCollectionWhen": { "type": "sendL10n", "params": { "key": "wab_collectionWhen", "lang": { "var": "user.lang" } } },
+    "sendWhenError": { "type": "sendL10n", "params": { "key": "wab_getTimestampError", "lang": { "var": "user.lang" } } },
+
+    "sendSelectMode": { "type": "sendL10n", "params": { "key": "wab_selectMode", "lang": { "var": "user.lang" } } },
+    "saveModeDirect": { "type": "data", "operation": "merge", "params": { "order.mode": "DIRECT" } },
+    "saveModeVote": { "type": "data", "operation": "merge", "params": { "order.mode": "VOTE" } },
+    "saveModeOffer": { "type": "data", "operation": "merge", "params": { "order.mode": "OFFER" } },
+
+    "sendEnterOfferPrice": { "type": "sendL10n", "params": { "key": "wab_enterOfferPrice", "lang": { "var": "user.lang" } } },
+    "saveOfferPrice": { "type": "save", "params": { "var": { "type": "order", "name": "clientPrice" } } },
+    "sendOfferPriceError": { "type": "sendL10n", "params": { "key": "wab_offerPriceMustBeNumber", "lang": { "var": "user.lang" } } },
+
+    "sendOrderConfirmation": { "type": "sendOrderConfirmation", "params": { "lang": { "var": "user.lang" } } },
+    "mergeWaitingForDrivers": { "type": "data", "operation": "merge", "params": { "order.input.waitingForDrivers": true } },
+    "startDriverSearch": { "type": "startDriverSearch" },
+    "createOrder": { "type": "createOrder" },
+    "sendNoDriversFound": { "type": "sendL10n", "params": { "key": "wab_noDriversFoundOrderCancelled", "lang": { "var": "user.lang" } } },
+    "sendDriverSelectionError": { "type": "sendDriverSelectionError" }
+  },
+  "states": {
+    "start": {
+      "id": "form.start",
+      "validation": {
+        "type": "choice",
+        "allowed": ["0", "1", "9", "/start"],
+        "mapping": {
+          "0": { "event": "order_creation" },
+          "1": { "event": "settings" },
+          "9": { "event": "help" },
+          "/start": { "event": "start" }
+        },
+        "errorEvent": "unknown_default_command"
+      },
+      "transitions": [
+        { "event": "start", "to": "form.start", "actions": ["sendDefaultMenu"] },
+        { "event": "help", "to": "form.start", "actions": ["sendHelp"] },
+        { "event": "order_creation", "to": "form.from", "actions": ["clearOrderData", "sendFrom"] },
+        { "event": "settings", "to": "settings.start", "actions": ["sendSettingsMenu"] },
+        { "event": "unknown_default_command", "to": "form.start", "actions": ["sendCommandNotFound"] }
+      ]
+    },
+
+    "from": {
+      "id": "form.from",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "exit" }, "9": { "event": "help" } },
+        "errorEvent": "error"
+      },
+      "location": {
+        "accept": true,
+        "save": {
+          "latitude": { "type": "order", "name": "from.latitude" },
+          "longitude": { "type": "order", "name": "from.longitude" }
+        },
+        "onSuccess": { "event": "ok" }
+      },
+      "transitions": [
+        { "event": "ok", "to": "form.to", "actions": ["saveFrom", "sendTo"] },
+        { "event": "help", "to": "form.from", "actions": ["sendFromHelp"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] },
+        { "event": "error", "to": "form.from", "actions": ["sendCommandNotFound"] }
+      ]
+    },
+
+    "to": {
+      "id": "form.to",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "exit" } },
+        "errorEvent": "error"
+      },
+      "location": {
+        "accept": true,
+        "save": {
+          "latitude": { "type": "order", "name": "to.latitude" },
+          "longitude": { "type": "order", "name": "to.longitude" }
+        },
+        "onSuccess": { "event": "ok" }
+      },
+      "transitions": [
+        { "event": "ok", "to": "form.people", "actions": ["saveTo", "sendPeople"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] },
+        { "event": "error", "to": "form.to", "actions": ["sendCommandNotFound"] }
+      ]
+    },
+
+    "people": {
+      "id": "form.people",
+      "validation": {
+        "type": "regex",
+        "pattern": "^\\d+$",
+        "successEvent": "ok",
+        "errorEvent": "error",
+        "mapping": { "0": { "event": "exit" } },
+        "saveAs": "order.peopleCount"
+      },
+      "transitions": [
+        { "event": "ok", "to": "form.carClass", "actions": ["savePeople", "sendCarClass"] },
+        { "event": "error", "to": "form.people", "actions": ["sendPeopleError"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] }
+      ]
+    },
+
+    "carClass": {
+      "id": "form.carClass",
+      "_note": "Справочник классов (PETIT/GRAND/ANY) — из конфига заказа, не зашит в движок (dsl-spec §2).",
+      "validation": {
+        "type": "choice",
+        "allowed": ["1", "2", "3"],
+        "mapping": {
+          "0": { "event": "exit" },
+          "1": { "event": "ok", "data": { "order.carClass": "PETIT" } },
+          "2": { "event": "ok", "data": { "order.carClass": "GRAND" } },
+          "3": { "event": "ok", "data": { "order.carClass": "ANY" } }
+        },
+        "errorEvent": "error"
+      },
+      "transitions": [
+        { "event": "ok", "to": "form.options", "actions": ["sendNeedOptionsQuestion"] },
+        { "event": "error", "to": "form.carClass", "actions": ["sendCommandNotFound"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] }
+      ]
+    },
+
+    "options": {
+      "id": "form.options",
+      "_note": "requirements[] с кодами (CHILD_SEAT/PETS_ALLOWED/...) вместо числовых токенов. Справочник — в памяти/конфиге, validation общая (dsl-spec §2, form-fsm §4).",
+      "validation": {
+        "type": "requirements",
+        "mapping": { "0": { "event": "skip", "data": { "order.requirements": [] } } },
+        "errorEvent": "error",
+        "successEvent": "ok",
+        "saveAs": "order.requirements"
+      },
+      "transitions": [
+        { "event": "ok", "to": "form.when", "actions": ["sendCollectionWhen"] },
+        { "event": "skip", "to": "form.when", "actions": ["sendCollectionWhen"] },
+        { "event": "error", "to": "form.options", "actions": ["sendOptionsError"] }
+      ]
+    },
+
+    "when": {
+      "id": "form.when",
+      "_note": "Парсинг NOW/LATER + времени → order.dispatchType, order.when (parseWhen). 0 → NOW.",
+      "transitions": [
+        { "event": "ok", "to": "form.mode", "actions": ["sendSelectMode"] },
+        { "event": "error", "to": "form.when", "actions": ["sendWhenError"] }
+      ]
+    },
+
+    "mode": {
+      "id": "form.mode",
+      "_note": "Все 3 модели в MVP. После выбора — guard-ветвление: OFFER → ввод цены, иначе → подтверждение.",
+      "validation": {
+        "type": "choice",
+        "allowed": ["1", "2", "3"],
+        "mapping": {
+          "0": { "event": "exit" },
+          "1": { "event": "mode_direct" },
+          "2": { "event": "mode_vote" },
+          "3": { "event": "mode_offer" }
+        },
+        "errorEvent": "error"
+      },
+      "transitions": [
+        { "event": "mode_direct", "to": "form.confirm", "actions": ["saveModeDirect", "sendOrderConfirmation"] },
+        { "event": "mode_vote", "to": "form.confirm", "actions": ["saveModeVote", "sendOrderConfirmation"] },
+        { "event": "mode_offer", "to": "form.offerPrice", "actions": ["saveModeOffer", "sendEnterOfferPrice"] },
+        { "event": "error", "to": "form.mode", "actions": ["sendCommandNotFound"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] }
+      ]
+    },
+
+    "offerPrice": {
+      "id": "form.offerPrice",
+      "validation": {
+        "type": "regex",
+        "pattern": "^\\d+$",
+        "successEvent": "ok",
+        "errorEvent": "error",
+        "mapping": { "0": { "event": "exit" } },
+        "saveAs": "order.clientPrice"
+      },
+      "transitions": [
+        { "event": "ok", "to": "form.confirm", "actions": ["saveOfferPrice", "sendOrderConfirmation"] },
+        { "event": "error", "to": "form.offerPrice", "actions": ["sendOfferPriceError"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] }
+      ]
+    },
+
+    "confirm": {
+      "id": "form.confirm",
+      "_note": "Guard-ветвление сценария создания (form-fsm §3): DIRECT → поиск ботом (driverSearch); VOTE/OFFER → прямое создание (order.start). PENDING: точная развилка после ответа бэкенда (backend-mapping §6).",
+      "validation": {
+        "type": "choice",
+        "allowed": ["1"],
+        "mapping": { "0": { "event": "exit" }, "1": { "event": "confirm" } },
+        "errorEvent": "error"
+      },
+      "transitions": [
+        { "event": "confirm", "guard": "order.mode == 'DIRECT'", "to": "form.driverSearch", "actions": ["mergeWaitingForDrivers", "startDriverSearch"] },
+        { "event": "confirm", "guard": "order.mode != 'DIRECT'", "to": "order.start", "actions": ["createOrder"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] },
+        { "event": "error", "to": "form.confirm", "actions": ["sendCommandNotFound"] }
+      ]
+    },
+
+    "driverSearch": {
+      "id": "form.driverSearch",
+      "_note": "System-события от DriverSearchManager (event-model §1).",
+      "transitions": [
+        { "event": "drivers_found", "to": "form.driverList", "actions": [] },
+        { "event": "no_drivers", "to": "form.start", "actions": ["clearOrderData", "sendNoDriversFound", "sendDefaultMenu"] }
+      ]
+    },
+
+    "driverList": {
+      "id": "form.driverList",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "exit" } },
+        "errorEvent": "error",
+        "successEvent": "ok"
+      },
+      "transitions": [
+        { "event": "ok", "to": "order.start", "actions": ["createOrder"] },
+        { "event": "exit", "to": "form.start", "actions": ["sendOrderCanceled", "sendDefaultMenu"] },
+        { "event": "error", "to": "form.driverList", "actions": ["sendDriverSelectionError"] }
+      ]
+    },
+
+    "default": {
+      "id": "form.default",
+      "validation": {
+        "type": "choice",
+        "allowed": ["0", "1", "9", "/start"],
+        "mapping": {
+          "0": { "event": "order_creation" },
+          "1": { "event": "settings" },
+          "9": { "event": "help" },
+          "/start": { "event": "start" }
+        },
+        "errorEvent": "unknown_default_command"
+      },
+      "transitions": [
+        { "event": "start", "to": "form.default", "actions": ["sendDefaultMenu"] },
+        { "event": "help", "to": "form.default", "actions": ["sendHelp"] },
+        { "event": "order_creation", "to": "form.from", "actions": ["clearOrderData", "sendFrom"] },
+        { "event": "settings", "to": "settings.start", "actions": ["sendSettingsMenu"] },
+        { "event": "unknown_default_command", "to": "form.default", "actions": ["sendCommandNotFound"] }
+      ]
+    }
+  }
+}

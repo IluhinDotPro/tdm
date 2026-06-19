@@ -19,8 +19,15 @@
 ```
 docs/        — документация (доменная модель, спецификации FSM, контракты)
   ROADMAP.md — план проекта по этапам
+  domain/    — glossary, модель заказа, модели исполнения (DIRECT/VOTE/OFFER)
+  order-fsm/ — спецификация внешнего FSM заказа + маппинг на бэкенд iBronevik
+  integration/ — контракт OrderGateway (бот ↔ FSM заказа)
+  bot-fsm/   — спецификация FSM интерфейса бота (форма + сопровождение)
+  gap-analysis.md, implementation-plan.md
+schemas/     — черновики JSON-схем FSM (form.json, order.json, _init.json)
 ```
 
 ## Статус
 
-Начальная фаза — проектирование и документация. См. [docs/ROADMAP.md](docs/ROADMAP.md).
+Проектирование и документация завершены (6 этапов). Начат переход к реализации.
+См. [docs/README.md](docs/README.md) (индекс) и [docs/ROADMAP.md](docs/ROADMAP.md).

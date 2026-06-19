@@ -1,0 +1,227 @@
+{
+  "name": "order",
+  "description": "ЧЕРНОВИК. Слой 3 — FSM сопровождения заказа. Реагирует на Domain-события order_status_* из OrderGateway. См. ../docs/bot-fsm/tracking-fsm.md. Эволюция реального order.json (возврат в form.*, fallback для гонок, ветки VOTE/OFFER).",
+  "actions": {
+    "sendOrderProcessing": { "type": "sendOrderProcessing" },
+    "sendOrderProcessingUnconditional": { "type": "sendOrderProcessing", "params": { "unconditional": true } },
+    "sendOrderApproved": { "type": "sendOrderApproved" },
+    "sendOrderDriverArrived": { "type": "sendL10n", "params": { "key": "wab_driverArrived", "lang": { "var": "user.lang" } } },
+    "sendOrderDriverStarted": { "type": "sendL10n", "params": { "key": "wab_driverStarted", "lang": { "var": "user.lang" } } },
+    "sendOrderDriverCanceled": { "type": "sendL10n", "params": { "key": "wab_driverCanceled", "lang": { "var": "user.lang" } } },
+    "sendOrderCompleted": { "type": "sendOrderCompleted" },
+    "sendOrderOutOfTime": { "type": "sendL10n", "params": { "key": "wab_outOfTime", "lang": { "var": "user.lang" } } },
+    "sendOrderCanceled": { "type": "sendL10n", "params": { "key": "wab_orderCanceled", "lang": { "var": "user.lang" } } },
+    "sendReviewPrompt": { "type": "sendL10n", "params": { "key": "wab_rateSet", "lang": { "var": "user.lang" } } },
+    "sendRatingError": { "type": "sendL10n", "params": { "key": "wab_youenterincorrectcommand", "lang": { "var": "user.lang" } } },
+    "sendReviewThanks": { "type": "sendL10n", "params": { "key": "wab_commentReceived", "lang": { "var": "user.lang" } } },
+    "setRate": { "type": "setRate" },
+    "setReview": { "type": "setReview" },
+    "sendCancelReasonList": { "type": "sendCancelReasonList" },
+    "cancelOrderWithReason": { "type": "cancelOrderWithReason" },
+    "sendCloseReasonSpecified": { "type": "sendL10n", "params": { "key": "wab_closeReasonSpecified", "lang": { "var": "user.lang" } } },
+    "sendDefaultMenu": { "type": "sendL10n", "params": { "key": "wab_defaultPrompt", "lang": { "var": "user.lang" } } },
+    "clearOrderData": { "type": "clearOrderData" },
+
+    "sendCandidateList": { "type": "sendCandidateList", "params": { "lang": { "var": "user.lang" } } },
+    "selectCandidate": { "type": "selectCandidate" },
+    "sendOfferList": { "type": "sendOfferList", "params": { "lang": { "var": "user.lang" } } },
+    "selectOffer": { "type": "selectOffer" },
+    "sendBoardingPrompt": { "type": "sendL10n", "params": { "key": "wab_enterBoardingCode", "lang": { "var": "user.lang" } } },
+    "confirmBoarding": { "type": "confirmBoarding" }
+  },
+  "states": {
+    "start": {
+      "id": "order.start",
+      "_note": "Domain-события принимаются 'через шаг' (поллинг может перепрыгнуть статус) — integration §5.",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "cancel_reason_request" } },
+        "errorEvent": "message"
+      },
+      "transitions": [
+        { "event": "order_status_processing", "to": "order.start", "actions": ["sendOrderProcessing"] },
+        { "event": "order_status_candidates_available", "guard": "snapshot.candidates.length > 0", "to": "order.candidateList", "actions": ["sendCandidateList"] },
+        { "event": "order_status_offers_available", "guard": "snapshot.offers.length > 0", "to": "order.offerList", "actions": ["sendOfferList"] },
+        { "event": "order_status_approved", "to": "order.approved", "actions": ["sendOrderApproved"] },
+        { "event": "order_status_driver_arrived", "to": "order.driverArrived", "actions": ["sendOrderDriverArrived"] },
+        { "event": "order_status_driver_started", "to": "order.driverStarted", "actions": ["sendOrderDriverStarted"] },
+        { "event": "order_status_driver_canceled", "to": "order.canceled", "actions": ["sendOrderDriverCanceled"] },
+        { "event": "order_status_canceled", "to": "order.canceled", "actions": ["sendOrderCanceled"] },
+        { "event": "order_status_completed", "to": "order.completed", "actions": ["sendOrderCompleted"] },
+        { "event": "order_status_out_of_time", "to": "form.start", "actions": ["sendOrderOutOfTime", "sendDefaultMenu"] },
+        { "event": "cancel_reason_request", "to": "order.cancelReason", "actions": ["sendCancelReasonList"] },
+        { "event": "message", "to": "form.default", "actions": [] }
+      ]
+    },
+
+    "candidateList": {
+      "id": "order.candidateList",
+      "_pending": "Ветка VOTE. Активируется после ответа бэкенд-команды: как читать состав кандидатов (backend-mapping §6). Состав — из OrderSnapshot.candidates.",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "cancel_reason_request" } },
+        "errorEvent": "candidate_selected",
+        "successEvent": "candidate_selected"
+      },
+      "transitions": [
+        { "event": "candidate_selected", "to": "order.approved", "actions": ["selectCandidate"] },
+        { "event": "order_status_approved", "to": "order.approved", "actions": ["sendOrderApproved"] },
+        { "event": "order_status_driver_started", "to": "order.driverStarted", "actions": ["sendOrderDriverStarted"] },
+        { "event": "order_status_out_of_time", "to": "form.start", "actions": ["sendOrderOutOfTime", "sendDefaultMenu"] },
+        { "event": "cancel_reason_request", "to": "order.cancelReason", "actions": ["sendCancelReasonList"] }
+      ]
+    },
+
+    "offerList": {
+      "id": "order.offerList",
+      "_pending": "Ветка OFFER. Активируется после ответа бэкенд-команды: чтение offers + цена клиента (backend-mapping §6). Состав — из OrderSnapshot.offers.",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "cancel_reason_request" } },
+        "errorEvent": "offer_selected",
+        "successEvent": "offer_selected"
+      },
+      "transitions": [
+        { "event": "offer_selected", "to": "order.approved", "actions": ["selectOffer"] },
+        { "event": "order_status_approved", "to": "order.approved", "actions": ["sendOrderApproved"] },
+        { "event": "order_status_out_of_time", "to": "form.start", "actions": ["sendOrderOutOfTime", "sendDefaultMenu"] },
+        { "event": "cancel_reason_request", "to": "order.cancelReason", "actions": ["sendCancelReasonList"] }
+      ]
+    },
+
+    "approved": {
+      "id": "order.approved",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "cancel_reason_request" } },
+        "errorEvent": "message"
+      },
+      "transitions": [
+        { "event": "cancel_reason_request", "to": "order.cancelReason", "actions": ["sendCancelReasonList"] },
+        { "event": "order_status_driver_arrived", "to": "order.driverArrived", "actions": ["sendOrderDriverArrived"] },
+        { "event": "order_status_driver_started", "to": "order.driverStarted", "actions": ["sendOrderDriverStarted"] },
+        { "event": "order_status_completed", "to": "order.completed", "actions": ["sendOrderCompleted"] },
+        { "event": "order_status_driver_canceled", "to": "order.canceled", "actions": ["sendOrderDriverCanceled"] },
+        { "event": "order_status_canceled", "to": "order.canceled", "actions": ["sendOrderCanceled"] }
+      ]
+    },
+
+    "driverArrived": {
+      "id": "order.driverArrived",
+      "_note": "PENDING (VOTE/внешний водитель): здесь возможен под-диалог boarding (код посадки) — order.boarding.",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "cancel_reason_request" } },
+        "errorEvent": "message"
+      },
+      "transitions": [
+        { "event": "cancel_reason_request", "to": "order.cancelReason", "actions": ["sendCancelReasonList"] },
+        { "event": "order_status_driver_started", "to": "order.driverStarted", "actions": ["sendOrderDriverStarted"] },
+        { "event": "order_status_completed", "to": "order.completed", "actions": ["sendOrderCompleted"] },
+        { "event": "order_status_driver_canceled", "to": "order.canceled", "actions": ["sendOrderDriverCanceled"] },
+        { "event": "order_status_canceled", "to": "order.canceled", "actions": ["sendOrderCanceled"] }
+      ]
+    },
+
+    "boarding": {
+      "id": "order.boarding",
+      "_pending": "Ветка VOTE/внешний водитель. Подтверждение посадки кодом (commands.confirmBoarding, b_driver_code). Активируется после решения бэкенда.",
+      "validation": {
+        "type": "regex",
+        "pattern": "^.+$",
+        "successEvent": "boarding_code_entered",
+        "errorEvent": "error"
+      },
+      "transitions": [
+        { "event": "boarding_code_entered", "to": "order.driverStarted", "actions": ["confirmBoarding"] },
+        { "event": "order_status_driver_started", "to": "order.driverStarted", "actions": ["sendOrderDriverStarted"] },
+        { "event": "order_status_canceled", "to": "order.canceled", "actions": ["sendOrderCanceled"] }
+      ]
+    },
+
+    "driverStarted": {
+      "id": "order.driverStarted",
+      "validation": {
+        "type": "mapping",
+        "mapping": { "0": { "event": "cancel_reason_request" } },
+        "errorEvent": "message"
+      },
+      "transitions": [
+        { "event": "cancel_reason_request", "to": "order.cancelReason", "actions": ["sendCancelReasonList"] },
+        { "event": "order_status_completed", "to": "order.completed", "actions": ["sendOrderCompleted"] },
+        { "event": "order_status_driver_canceled", "to": "order.canceled", "actions": ["sendOrderDriverCanceled"] },
+        { "event": "order_status_canceled", "to": "order.canceled", "actions": ["sendOrderCanceled"] }
+      ]
+    },
+
+    "cancelReason": {
+      "id": "order.cancelReason",
+      "_note": "Fallback при гонках (tracking-fsm §5): если придёт терминальное Domain-событие, выходим из под-диалога.",
+      "validation": {
+        "type": "choice",
+        "allowed": ["01", "1", "2", "3", "4"],
+        "mapping": {
+          "0": { "event": "cancel_reason_error" },
+          "01": { "event": "cancel_back_to_start" },
+          "1": { "event": "cancel_reason_1" },
+          "2": { "event": "cancel_reason_2" },
+          "3": { "event": "cancel_reason_3" },
+          "4": { "event": "cancel_reason_4" }
+        },
+        "errorEvent": "cancel_reason_error",
+        "successEvent": "ok"
+      },
+      "transitions": [
+        { "event": "cancel_back_to_start", "to": "order.start", "actions": ["sendOrderProcessingUnconditional"] },
+        { "event": "cancel_reason_1", "to": "form.default", "actions": ["cancelOrderWithReason", "sendCloseReasonSpecified"] },
+        { "event": "cancel_reason_2", "to": "form.default", "actions": ["cancelOrderWithReason", "sendCloseReasonSpecified"] },
+        { "event": "cancel_reason_3", "to": "form.default", "actions": ["cancelOrderWithReason", "sendCloseReasonSpecified"] },
+        { "event": "cancel_reason_4", "to": "form.default", "actions": ["cancelOrderWithReason", "sendCloseReasonSpecified"] },
+        { "event": "cancel_reason_error", "to": "order.cancelReason", "actions": ["sendCommandNotFound"] },
+        { "event": "order_status_completed", "to": "order.completed", "actions": ["sendOrderCompleted"] },
+        { "event": "order_status_canceled", "to": "order.canceled", "actions": ["sendOrderCanceled"] },
+        { "event": "order_status_driver_canceled", "to": "order.canceled", "actions": ["sendOrderDriverCanceled"] }
+      ]
+    },
+
+    "completed": {
+      "id": "order.completed",
+      "validation": {
+        "type": "choice",
+        "allowed": ["1", "2", "3", "4", "5"],
+        "mapping": { "0": { "event": "skip" } },
+        "errorEvent": "error",
+        "successEvent": "ok",
+        "saveAs": "order.rate"
+      },
+      "transitions": [
+        { "event": "ok", "to": "order.review", "actions": ["setRate", "sendReviewPrompt"] },
+        { "event": "skip", "to": "form.default", "actions": ["clearOrderData", "sendDefaultMenu"] },
+        { "event": "error", "to": "order.completed", "actions": ["sendRatingError"] }
+      ]
+    },
+
+    "review": {
+      "id": "order.review",
+      "validation": {
+        "type": "regex",
+        "pattern": "^.+$",
+        "mapping": { "0": { "event": "skip" } },
+        "errorEvent": "skip",
+        "successEvent": "ok",
+        "saveAs": "order.review"
+      },
+      "transitions": [
+        { "event": "ok", "to": "form.default", "actions": ["setReview", "sendReviewThanks", "clearOrderData", "sendDefaultMenu"] },
+        { "event": "skip", "to": "form.default", "actions": ["clearOrderData", "sendDefaultMenu"] }
+      ]
+    },
+
+    "canceled": {
+      "id": "order.canceled",
+      "transitions": [
+        { "event": "message", "to": "form.default", "actions": ["clearOrderData", "sendDefaultMenu"] }
+      ]
+    }
+  }
+}

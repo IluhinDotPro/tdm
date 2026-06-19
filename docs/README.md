@@ -32,7 +32,10 @@
 ## Этап 6 — План реализации ✅
 - [implementation-plan.md](implementation-plan.md) — блоки A–E, MVP-срез, граф зависимостей.
 
+## Черновики схем (реализация спеки)
+- [../schemas/](../schemas/) — `_init.json`, `form.json` (форма такси), `order.json` (сопровождение) — DSL MultiBot + Guard.
+
 ---
 
-**Все 6 этапов документации завершены.** Дальше — утверждение базы заказчиком, ответы бэкенд-команды
-(ветки VOTE/OFFER), переход к реализации по [implementation-plan.md](implementation-plan.md).
+**Все 6 этапов документации завершены + черновики схем.** Дальше — утверждение базы заказчиком,
+ответы бэкенд-команды (ветки VOTE/OFFER), переход к реализации по [implementation-plan.md](implementation-plan.md).
