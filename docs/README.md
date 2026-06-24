@@ -21,6 +21,7 @@
 
 ## Этап 3 — Контракт интеграции ✅
 - [integration/order-gateway-contract.md](integration/order-gateway-contract.md) — порт `OrderGateway`, маппинг, гарантии доставки.
+- [domain-api-contract.md](domain-api-contract.md) — ⭐ доменный контракт серверное FSM-ядро ↔ бот: Commands · Queries · Order Snapshot · Available Actions · UI State Mapping · Versioning.
 
 ## Этап 4 — FSM интерфейса бота (основная задача) ✅
 - [bot-fsm/dsl-spec.md](bot-fsm/dsl-spec.md) — DSL: состояния, validation, Guard, cross-flow, actions.
