@@ -60,8 +60,13 @@ stateDiagram-v2
     end note
 ```
 
-> Ветвление `mode → offerPrice/confirm` использует **guard** ([dsl-spec.md](dsl-spec.md) §3):
-> `{ "event": "ok", "guard": "order.mode == 'OFFER'", "to": "form.offerPrice" }`.
+> **Где именно ветвится режим (как в `schemas/form.json`, проверено `tests/test_form_fsm.ts`):**
+> - на `form.mode` выбор пользователя (1/2/3) маппится валидацией в РАЗНЫЕ события
+>   (`mode_direct`/`mode_vote` → `form.confirm`, `mode_offer` → `form.offerPrice`) — guard здесь не нужен,
+>   событие само несёт выбор;
+> - **guard** ([dsl-spec.md](dsl-spec.md) §3) стоит на `form.confirm` и разводит СЦЕНАРИЙ СОЗДАНИЯ:
+>   `{ "event": "confirm", "guard": "order.mode == 'DIRECT'", "to": "form.driverSearch" }` (бот ищет водителя)
+>   vs `{ "event": "confirm", "guard": "order.mode != 'DIRECT'", "to": "order.start" }` (прямое создание, VOTE/OFFER).
 
 ---
 
