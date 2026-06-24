@@ -14,14 +14,16 @@
 ## Этап 2 — Спецификация FSM заказа (внешний) ✅
 - [order-fsm/backend-mapping.md](order-fsm/backend-mapping.md) — текущий бэкенд iBronevik (`b_state`+`c_state`) → доменная модель.
 - [order-fsm/api-payload-reference.md](order-fsm/api-payload-reference.md) — ⭐ авторитетный контракт payload/actions API (из дампа серверного FSM).
-- [order-fsm/states.md](order-fsm/states.md) — состояния и переходы (наблюдаемый + целевой FSM).
+- [order-fsm/states.md](order-fsm/states.md) — состояния и переходы (12 доменных состояний движка + наблюдаемый/целевой FSM).
+- [order-fsm/fsm-core-design.md](order-fsm/fsm-core-design.md) — ⭐ strawman устройства серверного FSM-ядра: агрегаты, сущности, таблицы, переходы (команда/авто/таймер), таймеры, авто-действия. Предмет проектирования для @spitegod.
 - [order-fsm/events.md](order-fsm/events.md) — каталог событий `order_status_*` + payload.
 - [order-fsm/commands.md](order-fsm/commands.md) — команды бот → заказ.
 - [order-fsm/timers.md](order-fsm/timers.md) — таймеры.
 
 ## Этап 3 — Контракт интеграции ✅
 - [integration/order-gateway-contract.md](integration/order-gateway-contract.md) — порт `OrderGateway`, маппинг, гарантии доставки.
-- [domain-api-contract.md](domain-api-contract.md) — ⭐ доменный контракт серверное FSM-ядро ↔ бот: Commands · Queries · Order Snapshot · Available Actions · UI State Mapping · Versioning.
+- [integration/bot-domain-api-contract.md](integration/bot-domain-api-contract.md) — ⭐ контракт B0: Бот ↔ Domain API (CQRS, snapshot, availableActions, fsmVersion). Согласован v1.
+- [domain-api-contract.md](domain-api-contract.md) — дополнение к B0: версионирование, forward-совместимость, capabilities, коды ошибок/идемпотентность, разведение FSM-state vs ObservedState.
 
 ## Этап 4 — FSM интерфейса бота (основная задача) ✅
 - [bot-fsm/dsl-spec.md](bot-fsm/dsl-spec.md) — DSL: состояния, validation, Guard, cross-flow, actions.

@@ -160,5 +160,6 @@ UI Resolver сводит `order_vote_driver_assigned` и `order_driver_assigned`
 - Точная схема `offers[]` (поля цены/eta/comment предложения водителя) — структуру `candidates[]`
   согласовали (`driverUserId/driverName/vehicle`), `offers[]` симметрично + цена предложения.
 - Семантика и payload `pickup-fee`, `boarding/confirm` (для VOTE — код посадки `b_driver_code`), `rating`.
-- Коды ошибок / идемпотентность команд (повтор `cancel` на терминальном — без эффекта).
+- Коды ошибок / идемпотентность команд (повтор `cancel` на терминальном — без эффекта) — ✅ вынесено в
+  [../domain-api-contract.md](../domain-api-contract.md) §5 (дополнение: версионирование, совместимость, ошибки).
 - Сроки готовности серверного API (хотя бы create + read state) — @spitegod пока без точной даты.
