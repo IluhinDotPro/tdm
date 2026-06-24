@@ -20,7 +20,7 @@
 |---|---|---|---|
 | A1 ✅ | **Guard в DSL** | dsl-spec §3 | ✅ Парсер выражений (`==,!=,>,<,>=,<=,&&,\|\|,!,путь,null`) без eval; `first_match` по guard над памятью. Код: `bot/src/engine/guard/`, врезка в `FSMManager.transition`; тесты `bot/tests/test_guard.ts` |
 | A2 | **Единая модель событий** | event-model | Тип события с природой (UI/System/Domain); опц. префиксы `sys_`; не терять Domain-события |
-| A3 | **Единый `dispatch`** | dsl-spec §5 | Вынести вычисление перехода из `MainHandler` в `FSMManager.dispatch(state,memory,event)→{next,actions,patch}` |
+| A3 ✅ | **Единый `dispatch`** | dsl-spec §5 | ✅ Чистое ядро `computeTransition(schema,state,memory,event)→{from,to,actions,entryActions}` в `bot/src/engine/dispatch.ts`; `transition()` — обёртка (+persist), `dispatch()` — read-only. Тесты `bot/tests/test_dispatch.ts`. Перенос determineEvent из MainHandler — в A2/A4 |
 | A4 | **Очистка протечек домена** | dsl-spec §2, form-fsm §4 | Убрать `additionalOptionsAllowed/TokenMap` из validation → справочник requirements в конфиг/память |
 | A5 | **onActionError** | dsl-spec §4 | Событие при сбое action (сейчас только лог) |
 

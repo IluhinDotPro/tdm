@@ -4,8 +4,8 @@ import { Redis } from 'ioredis';
 import { getTaggedLogger } from '../../addons/logger';
 
 const fsmLog = getTaggedLogger('FSM');
-import { TenantSchema, Flow, Action, State, Transition } from '../types';
-import { chooseTransition } from '../guard/chooseTransition';
+import { TenantSchema, Flow, Action, State } from '../types';
+import { computeTransition, DispatchResult } from '../dispatch';
 
 /**
  * FSMManager - отвечает ТОЛЬКО за:
@@ -229,87 +229,49 @@ export class FSMManager {
   // ==================== ПЕРЕХОДЫ (ТОЛЬКО ВОЗВРАЩАЮТ ИМЕНА ДЕЙСТВИЙ) ====================
 
   /**
-   * Выполняет переход между состояниями
-   * @returns ТОЛЬКО информацию о переходе и ИМЕНА действий, НЕ выполняет их
+   * Выполняет переход между состояниями: вычисляет переход через чистое ядро computeTransition
+   * (dsl-spec §5) и ПЕРСИСТИТ новое состояние. Действия НЕ выполняет — возвращает их имена.
+   * @returns ТОЛЬКО информацию о переходе и ИМЕНА действий перехода.
    */
   async transition(tenantId: string, userId: string, event: string, botId?: string): Promise<{
     from: string | null;
     to: string | null;
     actions: string[];
   }> {
-    let log = '';
-
-    const addLog = (message: string) => {
-      log += message + '\n';
-    };
-
     const schema = await this.loadSchema(tenantId);
     const current = (await this.getState(tenantId, userId, botId)) ?? schema.initialState;
-
-    addLog('🔍 TRANSITION DEBUG:');
-    addLog(`  - looking for state: ${current}`);
-    addLog(`  - event: ${event}`);
-
-    // Найти состояние во всех потоках
-    let stateDef: State | null = null;
-    let foundFlow = null;
-
-    for (const [flowName, flow] of Object.entries(schema.flows || {})) {
-      addLog(`  - checking flow: ${flowName}, states: ${JSON.stringify(Object.keys(flow.states || {}))}`);
-
-      if (flow.states?.[current]) {
-        stateDef = flow.states[current];
-        foundFlow = flowName;
-        addLog(`  ✅ Found state in flow: ${flowName}`);
-        break;
-      }
-    }
-
-    if (!stateDef) {
-      addLog('  ❌ State not found in any flow!');
-      const allStates = Object.values(schema.flows || {}).flatMap(f => Object.keys(f.states || {}));
-      addLog(`  - all states: ${JSON.stringify(allStates)}`);
-
-      if (process.env.FSM_TRANSITION_DEBUG === '1') {
-        fsmLog.debug('transition log (state not found)', { log });
-      }
-
-      return { from: current, to: null, actions: [] };
-    }
-
-    addLog(`  - available transitions: ${JSON.stringify(stateDef.transitions.map(t => t.event))}`);
-
-    // Память пользователя как контекст для guard (order.*, user.*, snapshot.* ...).
-    // Данные валидации уже смёржены в память хендлером ДО вызова transition (MainHandler §3),
-    // поэтому payload события виден guard'у через память.
+    // Память пользователя — контекст для guard (order.*, user.*, snapshot.* ...). Данные валидации
+    // уже смёржены в память хендлером ДО transition (MainHandler §3), поэтому payload виден guard'у.
     const memory = await this.getData(tenantId, userId, botId);
-    const transition = chooseTransition(stateDef.transitions, event, memory, (e, t) => {
-      addLog(`  ⚠️ guard error on '${t.event}' → '${t.to}': ${e.message}`);
+
+    const result = computeTransition(schema, current, memory, event, (e, t) => {
       fsmLog.warn('guard evaluation error', { state: current, event, guard: t.guard, error: e.message });
     });
-    if (!transition) {
-      addLog(`  ❌ Transition not found for event: ${event} (нет перехода с таким событием или ни один guard не прошёл)`);
 
+    if (result.to == null) {
       if (process.env.FSM_TRANSITION_DEBUG === '1') {
-        fsmLog.debug('transition log (transition not found)', { log });
+        const allStates = Object.values(schema.flows || {}).flatMap(f => Object.keys(f.states || {}));
+        fsmLog.debug('transition: нет перехода', { state: current, event, knownStates: allStates });
       }
-
       return { from: current, to: null, actions: [] };
     }
 
-    addLog(`  ✅ Found transition to: ${transition.to}`);
+    await this.setState(tenantId, userId, result.to, botId);
+    return { from: current, to: result.to, actions: result.actions };
+  }
 
-    const to = transition.to;
-    await this.setState(tenantId, userId, to, botId);
-
-    // Выводим весь накопленный лог перед возвратом результата
-    //console.log('\n📋 TRANSITION LOG:\n' + log);
-
-    return {
-      from: current,
-      to,
-      actions: transition.actions || []
-    };
+  /**
+   * Чистый расчёт перехода (dsl-spec §5) — БЕЗ записи состояния (read-only).
+   * Читает текущее состояние и память, возвращает { from, to, actions, entryActions }.
+   * Удобно для предпросмотра/тестов и как единая точка вычисления для будущих каналов.
+   */
+  async dispatch(tenantId: string, userId: string, event: string, botId?: string): Promise<DispatchResult> {
+    const schema = await this.loadSchema(tenantId);
+    const current = (await this.getState(tenantId, userId, botId)) ?? schema.initialState;
+    const memory = await this.getData(tenantId, userId, botId);
+    return computeTransition(schema, current, memory, event, (e, t) => {
+      fsmLog.warn('guard evaluation error', { state: current, event, guard: t.guard, error: e.message });
+    });
   }
 
   /**

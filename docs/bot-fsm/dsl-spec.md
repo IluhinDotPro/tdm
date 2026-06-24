@@ -112,16 +112,22 @@ Guard — булево условие на переходе. Переход вы
 
 ---
 
-## 5. Единый интерфейс перехода (цель, gpt2)
+## 5. Единый интерфейс перехода (реализовано — Блок A3)
 
 Движок сводится к чистой функции:
 
 ```
-dispatch(state, memory, event) → { nextState, actions, memoryPatch }
+dispatch(state, memory, event) → { from, to, actions, entryActions }
 ```
 
-Это позволяет одному движку обслуживать form-FSM, tracking-FSM (и в будущем web/mobile). Сейчас
-переход частично вычисляет Handler, а не FSMManager (gpt2) — цель Этапа 6 вынести в `dispatch`.
+Это позволяет одному движку обслуживать form-FSM, tracking-FSM (и в будущем web/mobile).
+✅ Реализация: `bot/src/engine/dispatch.ts` — `computeTransition(schema, state, memory, event)` без I/O
+и побочных эффектов. `FSMManager.transition()` — тонкая обёртка (вычисление + persist состояния),
+`FSMManager.dispatch()` — read-only расчёт. Тесты — `bot/tests/test_dispatch.ts`.
+
+> memoryPatch ядром не возвращается: патч памяти формируется выше (validation, до перехода) и ниже
+> (actions через ActionExecutor). Ядро отвечает только за выбор перехода. Полный перенос вычисления
+> из `MainHandler` (determineEvent) в dispatch — следующий шаг (часть A2/A4).
 
 ---
 
