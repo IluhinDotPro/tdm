@@ -18,7 +18,7 @@
 
 | # | Задача | Спека | Действие в коде (MultiBot) |
 |---|---|---|---|
-| A1 | **Guard в DSL** | dsl-spec §3 | Парсер выражений (`==,!=,>,<,&&,||,!,путь`); выбор перехода `first_match` по guard; над памятью+payload |
+| A1 ✅ | **Guard в DSL** | dsl-spec §3 | ✅ Парсер выражений (`==,!=,>,<,>=,<=,&&,\|\|,!,путь,null`) без eval; `first_match` по guard над памятью. Код: `bot/src/engine/guard/`, врезка в `FSMManager.transition`; тесты `bot/tests/test_guard.ts` |
 | A2 | **Единая модель событий** | event-model | Тип события с природой (UI/System/Domain); опц. префиксы `sys_`; не терять Domain-события |
 | A3 | **Единый `dispatch`** | dsl-spec §5 | Вынести вычисление перехода из `MainHandler` в `FSMManager.dispatch(state,memory,event)→{next,actions,patch}` |
 | A4 | **Очистка протечек домена** | dsl-spec §2, form-fsm §4 | Убрать `additionalOptionsAllowed/TokenMap` из validation → справочник requirements в конфиг/память |

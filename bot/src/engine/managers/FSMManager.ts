@@ -5,6 +5,7 @@ import { getTaggedLogger } from '../../addons/logger';
 
 const fsmLog = getTaggedLogger('FSM');
 import { TenantSchema, Flow, Action, State, Transition } from '../types';
+import { chooseTransition } from '../guard/chooseTransition';
 
 /**
  * FSMManager - отвечает ТОЛЬКО за:
@@ -74,7 +75,8 @@ export class FSMManager {
           transitions: (state.transitions || []).map((t: any) => ({
             event: t.event,
             to: t.to,
-            actions: t.actions || []
+            actions: t.actions || [],
+            ...(t.guard != null && { guard: t.guard })
           })),
           // ✅ Добавляем validation, если он есть
           ...(state.validation && { validation: state.validation }),
@@ -277,9 +279,16 @@ export class FSMManager {
 
     addLog(`  - available transitions: ${JSON.stringify(stateDef.transitions.map(t => t.event))}`);
 
-    const transition = (stateDef.transitions || []).find((t) => t.event === event);
+    // Память пользователя как контекст для guard (order.*, user.*, snapshot.* ...).
+    // Данные валидации уже смёржены в память хендлером ДО вызова transition (MainHandler §3),
+    // поэтому payload события виден guard'у через память.
+    const memory = await this.getData(tenantId, userId, botId);
+    const transition = chooseTransition(stateDef.transitions, event, memory, (e, t) => {
+      addLog(`  ⚠️ guard error on '${t.event}' → '${t.to}': ${e.message}`);
+      fsmLog.warn('guard evaluation error', { state: current, event, guard: t.guard, error: e.message });
+    });
     if (!transition) {
-      addLog(`  ❌ Transition not found for event: ${event}`);
+      addLog(`  ❌ Transition not found for event: ${event} (нет перехода с таким событием или ни один guard не прошёл)`);
 
       if (process.env.FSM_TRANSITION_DEBUG === '1') {
         fsmLog.debug('transition log (transition not found)', { log });

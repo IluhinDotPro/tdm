@@ -24,6 +24,7 @@ export interface TransitionDef {
   event: string;
   to: string;
   actions?: string[]; // action names to run on transition
+  guard?: string;     // булево условие над памятью (dsl-spec §3); first_match по guard
 }
 
 export interface StateDef {
@@ -51,6 +52,7 @@ export interface Transition {
   event: string;
   to: string;
   actions: string[];
+  guard?: string;     // см. TransitionDef.guard
 }
 
 export interface State {

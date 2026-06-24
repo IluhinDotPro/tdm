@@ -65,9 +65,11 @@
 
 ---
 
-## 3. Guard (расширение — сейчас отсутствует)
+## 3. Guard (реализовано — Блок A1)
 
-> gpt1/gpt2: в текущем DSL guard нет, условность зашита в JS (MainHandler). Вводим явно.
+> gpt1/gpt2: в исходном DSL guard не было, условность зашита в JS (MainHandler). Введён явно.
+> ✅ Реализация: `bot/src/engine/guard/evaluateGuard.ts` (безопасный парсер выражений, без eval) +
+> `chooseTransition.ts` (first_match), врезка в `FSMManager.transition`. Тесты — `bot/tests/test_guard.ts`.
 
 Guard — булево условие на переходе. Переход выбирается, если событие совпало **и** guard истинен.
 
