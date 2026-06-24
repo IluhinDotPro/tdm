@@ -1489,7 +1489,7 @@ DRIVER_ASSIGNED → EN_ROUTE/HEADING_TO_PICKUP → ARRIVAL
 > **Следующий шаг (ревью 2026-06-24):** не новые документы, а **сверка** этого strawman'а с реальным
 > универсальным движком Ивана (платформа постаматов) — насколько таблица переходов §5 (T1–T16),
 > модель агрегатов §2 и развилка §2.4 ложатся на существующую платформу. Открытые вопросы §11 —
-> программа этой сверки.
+> программа этой сверки. Рабочий лист для встречи — [fsm-core-sync-checklist.md](fsm-core-sync-checklist.md).
 >
 > **Scope:** Order FSM. Driver FSM и Driver Web UI — зона @spitegod, **вне** этого документа (ADR §2).
 > Опирается на: [../domain/order-model.md](../domain/order-model.md), [../domain/execution-models.md](../domain/execution-models.md),
