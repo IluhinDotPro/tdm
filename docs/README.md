@@ -9,6 +9,7 @@
 - [domain/glossary.md](domain/glossary.md) — единый словарь терминов.
 - [domain/order-model.md](domain/order-model.md) — доменная модель заказа.
 - [domain/execution-models.md](domain/execution-models.md) — модели исполнения DIRECT / VOTE / OFFER + Carrier Determination.
+- [domain/business-rules.md](domain/business-rules.md) — ⭐ бизнес-правила: стоимость (4 формы), оплата, отмена/завершение, инциденты (заказчик 2026-06-20).
 
 ## Этап 2 — Спецификация FSM заказа (внешний) ✅
 - [order-fsm/backend-mapping.md](order-fsm/backend-mapping.md) — текущий бэкенд iBronevik (`b_state`+`c_state`) → доменная модель.

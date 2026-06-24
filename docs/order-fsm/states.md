@@ -91,9 +91,16 @@ INIT/DRAFT → CREATED → MATCHING_STARTED
   └─ OFFER:   WAITING_FOR_OFFERS     → OFFER_SELECTED → DRIVER_ASSIGNED
 DRIVER_ASSIGNED → EN_ROUTE/HEADING_TO_PICKUP → ARRIVAL
    → BOARDING_VERIFICATION → RIDE_STARTED → FINISHED
-Терминальные: CANCELLED, EXPIRED, NO_SHOW_DRIVER
+Терминальные: CANCELLED, EXPIRED, NO_SHOW_DRIVER, RIDE_INTERRUPTED
 Возвраты: RE_MATCHING / RE_ASSIGNMENT (водитель отказался после назначения)
 ```
+
+**Правило отмены/завершения** (бизнес-правила заказчика, [../domain/business-rules.md](../domain/business-rules.md) §4):
+- `CANCELLED` допустим **только до начала поездки** — из `CREATED`, `MATCHING_STARTED`,
+  `WAITING_FOR_CANDIDATES`, `DRIVER_ASSIGNED`, `ARRIVAL`, `BOARDING_VERIFICATION`.
+- После `RIDE_STARTED` отмены нет; досрочное прекращение поездки (высадка не в плановой точке) —
+  **отдельное терминальное** `RIDE_INTERRUPTED` (= `EARLY_TERMINATED`), **отличное от** `CANCELLED`.
+- Неоплата и SOS — **инциденты вне FSM**, состояние не меняют ([business-rules.md](../domain/business-rules.md) §5).
 
 Отличия целевого от наблюдаемого (gap для будущего):
 - явные `WAITING_FOR_CANDIDATES` / `WAITING_FOR_OFFERS` с составом для выбора клиентом;
