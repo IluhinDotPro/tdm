@@ -6,6 +6,7 @@ import { getTaggedLogger } from '../../addons/logger';
 const fsmLog = getTaggedLogger('FSM');
 import { TenantSchema, Flow, Action, State } from '../types';
 import { computeTransition, DispatchResult } from '../dispatch';
+import { isDomainEvent } from '../eventNature';
 
 /**
  * FSMManager - отвечает ТОЛЬКО за:
@@ -249,6 +250,11 @@ export class FSMManager {
     });
 
     if (result.to == null) {
+      // A2: «Domain-события не теряются» (event-model §4) — потеря доменного события не должна быть
+      // молчаливой. Если в текущем состоянии нет перехода по order_status_* — делаем потерю видимой.
+      if (isDomainEvent(event)) {
+        fsmLog.warn('domain event not consumed: нет перехода в текущем состоянии', { state: current, event });
+      }
       if (process.env.FSM_TRANSITION_DEBUG === '1') {
         const allStates = Object.values(schema.flows || {}).flatMap(f => Object.keys(f.states || {}));
         fsmLog.debug('transition: нет перехода', { state: current, event, knownStates: allStates });
