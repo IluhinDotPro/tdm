@@ -11,8 +11,15 @@
 > бизнес-логики заказа — только представление и навигация по под-диалогам (отмена, рейтинг, выбор).
 >
 > Прообраз в коде: MultiBot `order.json` (полностью разобран), WATaxiBot `observer/order.ts`.
-> Вход — cross-flow из [form-fsm.md](form-fsm.md) (`order.start`). Источник событий —
-> [../integration/order-gateway-contract.md](../integration/order-gateway-contract.md).
+> Вход — cross-flow из [form-fsm.md](form-fsm.md) (`order.start`). Источник состояния —
+> [../integration/order-gateway-contract.md](../integration/order-gateway-contract.md) /
+> [../integration/bot-domain-api-contract.md](../integration/bot-domain-api-contract.md).
+>
+> **Резолвер ведётся снапшотом B0 (2026-06-24):** доменный `state` (12 шт., маппинг на UI-каноники —
+> [../order-fsm/states.md](../order-fsm/states.md) §1a; включает новый `NO_SHOW`) проецируется в
+> сообщение, а доступные действия/кнопки берутся из **`availableActions`** снапшота — бот не реплицирует
+> бизнес-правила (что разрешено в состоянии, решает сервер). UI-каунику считает бот; сервер `uiState`
+> не отдаёт.
 
 ---
 

@@ -17,13 +17,55 @@
 
 ## 1. Два уровня описания
 
+- **Фактические состояния Domain FSM (@spitegod, 2026-06-24)** — авторитетный перечень состояний
+  серверного движка и маппинг на UI-каноники (раздел 1a). **Истина по состоянию заказа.**
 - **Целевой FSM (домен ТДМ)** — полный, со стратегиями Carrier Determination (раздел 4). Ориентир.
-- **Наблюдаемый FSM (текущий бэкенд)** — то, что реально различимо по 8 событиям поллинга (раздел 2).
-  Именно его реализует бот сегодня.
+- **Наблюдаемый FSM (текущий бэкенд)** — то, что реально различимо по 8 событиям поллинга iBronevik
+  (раздел 2). Это путь Core Adapter / интерим-адаптера, НЕ доменная истина.
 
 ---
 
-## 2. Наблюдаемый FSM (текущий бэкенд) — то, что реализуем сейчас
+## 1a. Фактические состояния Domain FSM (авторитет — @spitegod, 2026-06-24)
+
+Перечень доменных состояний движка (12). Это то, что отдаёт серверный API в поле `state` снапшота
+([../integration/bot-domain-api-contract.md](../integration/bot-domain-api-contract.md) §3). Бот их
+НЕ владеет и НЕ вычисляет — только проецирует в UI через **Passenger UI Resolver**.
+
+| Доменное состояние | Режим | UI-каноника (резолвер бота) |
+|---|---|---|
+| `order_created` | все | `SEARCHING` |
+| `order_vote_waiting_candidates` | VOTE | `SEARCHING` |
+| `order_offer_waiting` | OFFER | `SEARCHING` |
+| `order_vote_driver_assigned` | VOTE | `ASSIGNED` |
+| `order_driver_assigned` | DIRECT/OFFER | `ASSIGNED` |
+| `order_driver_arrived` | все | `DRIVER_ARRIVED` |
+| `order_in_ride` | все | `IN_RIDE` |
+| `order_completed` ⛔ | все | `COMPLETED` |
+| `order_cancelled` ⛔ | все | `CANCELLED` |
+| `order_expired` ⛔ | все | `EXPIRED` |
+| `ride_interrupted` ⛔ | все | `RIDE_INTERRUPTED` |
+| `order_vote_no_show` ⛔ | VOTE | `NO_SHOW` *(новый UI-статус)* |
+
+⛔ — терминальное.
+
+> **`uiState` сервер НЕ отдаёт** — UI-каноника вычисляется ботом (ADR §3, Вариант 3). `availableActions`
+> из снапшота ведут рендер кнопок без знания ботом бизнес-правил.
+> `order_vote_driver_assigned` и `order_driver_assigned` сводятся к `ASSIGNED` для пассажира, но на
+> доменном уровне различны — важно для аналитики (Валентин #6).
+
+### Ветки по режимам (различимы в Domain FSM)
+
+```
+DIRECT: order_created → order_driver_assigned → order_driver_arrived → order_in_ride → order_completed
+VOTE:   order_created → order_vote_waiting_candidates → order_vote_driver_assigned
+                      → order_driver_arrived → order_in_ride → order_completed
+OFFER:  order_created → order_offer_waiting → order_driver_assigned
+                      → order_driver_arrived → order_in_ride → order_completed
+```
+
+---
+
+## 2. Наблюдаемый FSM (поллинг iBronevik) — путь Core Adapter, НЕ доменная истина
 
 ### Состояния
 | Состояние | Вход (событие) | Смысл (поля бэкенда) |

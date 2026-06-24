@@ -1,55 +1,70 @@
 # Контракт интеграции: OrderGateway (бот ↔ FSM заказа)
 
-> Абстрактный порт, изолирующий FSM бота от реализации внешнего FSM заказа.
-> Решения заказчика: транспорт — **поллинг**, бэкенд — **текущий iBronevik**. Контракт спроектирован
-> так, чтобы поллинг можно было заменить на webhook/WS без изменения FSM бота.
+> 🏛 **Архитектура (ADR-001, Вариант 3) + контракт B0 (@spitegod/Валентин, 2026-06-24).**
+> ⚠️ **Главное обновление:** интерфейс `OrderGateway` теперь **зеркалит будущий серверный Domain API**
+> ([bot-domain-api-contract.md](bot-domain-api-contract.md)), а **не** iBronevik (требование @spitegod:
+> «интерфейс OrderGateway должен сразу повторять будущий контракт domain api, а не iBronevik»).
+> Адаптер iBronevik (поллинг `b_state`, `deriveEvent`, `set_offer`) — лишь **интерим-реализация под
+> портом** до готовности серверного API; всё это в целевой архитектуре уходит на сервер в **Core
+> Adapter**, а не в бот. Когда API готов — порт перенаправляется на него без изменения FSM бота.
 >
-> Опирается на: [../order-fsm/events.md](../order-fsm/events.md), [../order-fsm/commands.md](../order-fsm/commands.md),
-> [../order-fsm/backend-mapping.md](../order-fsm/backend-mapping.md). Прообраз в коде — `OrderManager` (MultiBot).
+> Опирается на: **[bot-domain-api-contract.md](bot-domain-api-contract.md)** (истина по форме),
+> [../order-fsm/states.md](../order-fsm/states.md), [../order-fsm/commands.md](../order-fsm/commands.md).
+> Прообраз в коде — `OrderManager` (MultiBot), но как интерим-адаптер, не как форма порта.
 
 ---
 
 ## 1. Назначение
 
-Бот общается с заказом только через `OrderGateway`:
-- **команды** (бот → заказ): создать, отменить, выбрать кандидата/предложение, подтвердить посадку…
-- **события** (заказ → бот): нормализованные `order_status_*` (как system-events в FSM).
+Бот общается с заказом только через `OrderGateway` — порт, **зеркалящий Domain API** (CQRS):
+- **команды** (бот → сервер, Command API): создать, отменить, выбрать кандидата/предложение, задать
+  pickup fee, подтвердить посадку, рейтинг.
+- **состояние** (сервер → бот, Query API): **снапшот** заказа по `orderId` (доменный `state` +
+  `availableActions` + driver/candidates/offers/price). Из снапшота бот сам выводит `order_status_*`
+  как system-events в FSM (через diff с прошлым снапшотом).
 
-Внутри `OrderGateway` живёт **адаптер бэкенда** (iBronevik), который переводит нормализованные
-команды/события в `b_*`/`c_*`/`set_offer` и обратно. FSM бота про `b_state` ничего не знает.
+Под портом в **интериме** живёт адаптер iBronevik (`b_*`/`c_*`/`set_offer`, `deriveEvent`); в целевой
+архитектуре под портом — **HTTP-клиент серверного API**, а маппинг iBronevik уходит в серверный Core
+Adapter. FSM бота про `b_state` не знает ни в одном из случаев.
 
 ```
-FSM бота ──command──► OrderGateway ──► [Adapter iBronevik] ──► API
-FSM бота ◄──event──── OrderGateway ◄── [Poller: deriveEvent] ◄── API (polling ~5s)
+интерим:  FSM бота ──command──► OrderGateway ──► [Adapter iBronevik] ──► iBronevik
+          FSM бота ◄──snapshot── OrderGateway ◄── [Poller: deriveEvent] ◄── iBronevik
+цель:     FSM бота ──command──► OrderGateway ──► [HTTP] ──► Domain API (Command)
+          FSM бота ◄──snapshot── OrderGateway ◄── [poll GET /orders/{id}] ◄── Domain API (Query)
 ```
 
 ---
 
-## 2. Интерфейс (нормализованный, транспорт-агностичный)
+## 2. Интерфейс (= Domain API, см. bot-domain-api-contract.md)
+
+Методы 1:1 с endpoints контракта B0. **Command API:**
 
 ```ts
 interface OrderGateway {
-  // команды (см. order-fsm/commands.md)
-  createOrder(params: OrderParams): Promise<{ orderId: string }>;
-  cancelOrder(orderId: string, reason: string): Promise<void>;         // → action=set_cancel_state
-  selectCandidate(orderId: string, driverId: string): Promise<void>;   // VOTE  → set_performer/performer=1/u_id
-  selectOffer(orderId: string, driverId: string): Promise<void>;       // OFFER → тот же set_performer (driverId, не offerId)
-  clearSelection(orderId: string, driverId: string): Promise<void>;    // → set_performer/performer=0/u_id
-  confirmBoarding(orderId: string, code: string): Promise<void>;       // VOTE → b_driver_code
-  setRate(orderId: string, rate: number): Promise<void>;
-  setReview(orderId: string, text: string): Promise<void>;
+  // Command API (намерения пассажира → сервер)
+  createOrder(params: CreateOrderPayload): Promise<{ orderId: string }>;  // POST /orders
+  cancelOrder(orderId: string, reason?: string): Promise<void>;           // POST /orders/{id}/cancel
+  selectCandidate(orderId: string, driverUserId: string): Promise<void>;  // VOTE  POST .../candidates/{driverUserId}/select
+  releaseCandidate(orderId: string): Promise<void>;                       // VOTE  POST .../candidates/release
+  selectOffer(orderId: string, driverUserId: string): Promise<void>;      // OFFER POST .../offers/{driverUserId}/select
+  setPickupFee(orderId: string, amount: number): Promise<void>;           // POST .../pickup-fee
+  confirmBoarding(orderId: string, code?: string): Promise<void>;         // POST .../boarding/confirm
+  rate(orderId: string, rating: number, review?: string): Promise<void>;  // POST .../rating
 
-  // наблюдение (события)
-  watch(orderId: string, ctx: WatchContext): void;    // поставить на наблюдение
+  // Query API (доменное состояние → бот)
+  getSnapshot(orderId: string): Promise<OrderSnapshot>;                   // GET /orders/{id}
+
+  // наблюдение (интерим: поллинг GET /orders/{id}; цель: + push)
+  watch(orderId: string, ctx: WatchContext): void;
   unwatch(orderId: string): void;
-  // доставка событий — через колбэк, заданный при инициализации:
-  // onOrderEvent(event: OrderEvent): Promise<void>
+  // дифф снапшота → колбэк onOrderEvent(event), заданный при инициализации
 }
 
 interface OrderEvent {
   orderId: string;
-  event: OrderStatusEvent;          // order_status_* (events.md)
-  snapshot?: OrderSnapshot;         // рекомендуемое обогащение (см. §4)
+  event: OrderStatusEvent;          // выведено из diff снапшота (events.md)
+  snapshot: OrderSnapshot;          // полный снапшот контракта B0 (см. §4)
   occurredAt: string;               // ISO; ставится при доставке (не в скрипте)
   seq?: number;                     // монотонный номер для упорядочивания
 }
@@ -58,8 +73,9 @@ interface WatchContext { botId: string; chatId: string; userId: string; lang?: s
                          maxWaitingSecs?: number; idField?: Record<string,string>; }
 ```
 
-> Замена транспорта = замена реализации `watch`/поллера (Poller → WebhookReceiver → WSClient).
-> Сигнатуры команд/событий и FSM бота не меняются.
+> `CreateOrderPayload` и `OrderSnapshot` — ровно из [bot-domain-api-contract.md](bot-domain-api-contract.md)
+> §2–3 (B0 — истина по форме). Замена транспорта (поллинг → push) = замена реализации `watch`; сигнатуры
+> и FSM бота не меняются. Переход интерим → цель = замена реализации под портом, не сигнатур.
 
 ---
 
@@ -72,25 +88,34 @@ interface WatchContext { botId: string; chatId: string; userId: string; lang?: s
 
 ---
 
-## 4. Обогащение события снимком (OrderSnapshot) — рекомендация
+## 4. OrderSnapshot — форма из контракта B0
 
-Сейчас payload минимален (`{orderId}`), и FSM-actions дочитывают детали из API (лишние запросы,
-гонки). Предлагается в момент эмита прикладывать снимок:
+Снапшот — **ровно** структура из [bot-domain-api-contract.md](bot-domain-api-contract.md) §3
+(сервер — истина). Ключевые поля:
 
 ```ts
 interface OrderSnapshot {
-  state: OrderObservedState;            // SEARCHING | ASSIGNED | ...
-  driver?: { name?: string; phone?: string; car?: string; plate?: string };
-  price?: { estimated?: number; final?: number };
-  candidates?: Array<{ driverId: string; carId?: string }>;   // VOTE: drivers[] где c_state==1
-  offers?: Array<{ driverId: string; price: number; eta?: string; comment?: string }>; // OFFER: c_options.performers_price/...
-  pickup?: { requested?: Location; actual?: Location };
+  fsmVersion: number;                   // версия графа состояний движка
+  orderId: string;
+  mode: 'DIRECT' | 'VOTE' | 'OFFER';
+  state: DomainOrderState;              // order_created | order_vote_waiting_candidates | ... (12 шт.)
+  availableActions: string[];           // ОБЯЗАТЕЛЬНО — ведёт рендер кнопок (бот не знает бизнес-правил)
+  driver: { driverUserId: string; driverName?: string; vehicle?: string } | null;
+  candidates: Array<{ driverUserId: string; driverName?: string; vehicle?: string }>;  // VOTE
+  offers: Array<{ driverUserId: string; driverName?: string; vehicle?: string; price?: number; eta?: string; comment?: string }>; // OFFER
+  price: { estimated?: number; pickupFee?: number; minimumRidePrice?: number; actual?: number | null; currency?: string };
+  paymentStatus: string;
+  updatedAt: string;
 }
 ```
-Поллер уже держит сырой ответ API — наполнить снимок дешево. ✅ Источники подтверждены:
-кандидаты = `drivers[]` где `c_state==1`; цена/ETA/коммент оффера = их `c_options.{performers_price,
-driver_offer_eta, driver_offer_comment}` (backend-mapping §3, §6). У оффера нет отдельного `offerId` —
-ключ выбора = `driverId` (`u_id`).
+
+- **`uiState` сервер НЕ отдаёт** — UI-каноника (`SEARCHING`…) вычисляется ботом (UI Resolver,
+  [../order-fsm/states.md](../order-fsm/states.md) §1a).
+- **Цена** приходит готовой (считает Core); бот не считает.
+- В **интериме** адаптер iBronevik наполняет эти поля из сырого ответа: кандидаты = `drivers[]` где
+  `c_state==1`, цена/eta/коммент оффера = их `c_options.{performers_price,driver_offer_eta,
+  driver_offer_comment}` (backend-mapping §3, §6); ключ выбора (VOTE и OFFER) = `driverUserId` (`u_id`),
+  отдельного `offerId` нет.
 
 ---
 
