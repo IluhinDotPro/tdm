@@ -101,9 +101,11 @@ order.mode                      // DIRECT | VOTE | OFFER
 order.clientPrice               // OFFER
 order.input.preferredDriversList, order.input.driversMap
 ```
-> Доменная очистка: текущие `additionalOptions: number[]` + `additionalOptionsTokenMap` в validation
-> (main.json `options`) → заменить на `requirements[]` с кодами из доменной модели
-> ([../domain/order-model.md](../domain/order-model.md) §2.4), справочник вынести из движка.
+> Доменная очистка (A4 ✅): `additionalOptionsAllowed`/`TokenMap` убраны из generic-валидации движка
+> и из `main.json` → доменный справочник `bot/src/engine/children/order/optionsCatalog.ts` (авторитет —
+> `booking_comments` API). Семантический переход `additionalOptions: number[]` → `requirements[]` с
+> кодами доменной модели ([../domain/order-model.md](../domain/order-model.md) §2.4) — для такси-тенанта
+> `form.json`; под Вариантом 3 каталог опций в перспективе уходит на сервер (ADR-001 §5.3).
 
 ---
 

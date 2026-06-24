@@ -5,6 +5,7 @@ import { ActionExecutor } from './ActionExecutor';
 import { TelegramBotPollingAdaptor, WhatsappWebPollingAdaptor } from '../../../transport';
 import TestAdapter from '../../../transport/TestAdapter/TestAdapter';
 import { parseDriverSelection, parseWhen, parseFromInput } from '../../children/parsers';
+import { resolveOptionIds, BookingComments } from '../../children/order/optionsCatalog';
 import { fsmPathFromSaveType } from './fsmStorage';
 import { checkDocsNeedUpdate } from '../../children/docs/docsHelpers';
 import { getTaggedLogger } from '../../../addons/logger';
@@ -282,37 +283,19 @@ export class MainHandler extends BaseHandler {
             return { event: 'error' };
         }
 
-        // main.options: "0"→skip из JSON; иначе id опций (whitelist/tokenMap из схемы + booking_comments API)
+        // main.options: "0"→skip из JSON; иначе id опций через доменный справочник (A4):
+        // курация + авторитетный booking_comments API. Каталог вынесен из generic-валидации.
         if (state === 'main.options') {
             if (stateDef?.validation) {
                 const result = this.validateInput(trimmedText, stateDef.validation);
                 if (result.event === 'skip') return { event: 'skip', data: result.data };
             }
-            const bookingComments = this.getApiManager()?.api_data_manager?.data?.data?.booking_comments;
-            if (!bookingComments) {
+            const bookingComments = this.getApiManager()?.api_data_manager?.data?.data?.booking_comments as BookingComments | undefined;
+            const resolved = resolveOptionIds(trimmedText, bookingComments);
+            if (!resolved.ok) {
                 return { event: 'error' };
             }
-            const v = stateDef?.validation;
-            const tokenMap = v?.additionalOptionsTokenMap;
-            const allowed = v?.additionalOptionsAllowed;
-            const parts = trimmedText.replace(/\s{2,}/g, ' ').split(' ').filter(Boolean);
-            const ids: number[] = [];
-            for (const idStr of parts) {
-                if (allowed?.length && !allowed.includes(idStr)) {
-                    return { event: 'error' };
-                }
-                const numericId = tokenMap && idStr in tokenMap ? tokenMap[idStr] : Number(idStr);
-                if (!Number.isFinite(numericId) || numericId < 0) {
-                    return { event: 'error' };
-                }
-                const key = String(numericId);
-                const comment = bookingComments[key];
-                if (!comment || (comment as { options?: { hidden?: boolean } }).options?.hidden) {
-                    return { event: 'error' };
-                }
-                ids.push(numericId);
-            }
-            return { event: 'ok', data: { 'order.input.additionalOptions': ids } };
+            return { event: 'ok', data: { 'order.input.additionalOptions': resolved.ids } };
         }
 
         // main.driverList: "0"→exit из JSON; иначе parseDriverSelection (требует driversMap)

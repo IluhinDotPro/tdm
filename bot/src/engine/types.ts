@@ -97,10 +97,8 @@ export interface ValidationRule {
   saveAs?: string;                         // Сохранить ввод как поле (поддерживает вложенные пути data.order.rate)
   saveFields?: Array<{ from: string; to: string }>; // Сохранить группы regex
   successEvent?: string;                   // Для choice/regex/range; для mapping не нужен
-  /** main.options: разрешённые id опций (строки как во вводе); проверка в MainHandler + booking_comments */
-  additionalOptionsAllowed?: string[];
-  /** main.options: маппинг токена в id для merge в data.additionalOptions (как map в save для языков) */
-  additionalOptionsTokenMap?: Record<string, number>;
+  // A4: доменные поля опций (additionalOptionsAllowed/TokenMap) вынесены из generic-валидации
+  // в доменный справочник children/order/optionsCatalog.ts. Generic ValidationRule про опции не знает.
 }
 
 export interface Flow {

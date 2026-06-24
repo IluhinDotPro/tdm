@@ -387,15 +387,6 @@
         "mapping": {
           "0": { "event": "skip", "data": { "order.input.additionalOptions": [] } }
         },
-        "additionalOptionsAllowed": ["1", "2", "4", "6", "7", "8"],
-        "additionalOptionsTokenMap": {
-          "1": 1,
-          "2": 2,
-          "4": 4,
-          "6": 6,
-          "7": 7,
-          "8": 8
-        },
         "errorEvent": "error"
       },
       "transitions": [
