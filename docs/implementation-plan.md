@@ -28,13 +28,21 @@
 
 ## Блок B — OrderGateway (интеграция)
 
-| # | Задача | Спека | Действие |
+> 🏛 **Переоценено под Вариант 3 (ADR-001):** владелец состояния — серверный Domain FSM. `OrderGateway`
+> остаётся **исходящим портом бота**, но за ним теперь **серверный API**, а не iBronevik. Маппинг
+> `b_state`/`c_*`, поллинг и команды iBronevik **уходят на сервер** в Core Adapter (наши
+> `backend-mapping.md`/`api-payload-reference.md` — спецификация для него). Новый критический
+> артефакт — **контракт Бот↔API** (со-дизайн с @spitegod). См.
+> [architecture-decision-variant3.md](architecture-decision-variant3.md) §4–5.
+
+| # | Задача | Спека | Действие (Вариант 3) |
 |---|---|---|---|
-| B1 | **Выделить порт `OrderGateway`** | integration §2,7 | Рефакторинг `OrderManager` в интерфейс (команды + watch/onOrderEvent) |
-| B2 | **Адаптер iBronevik** | backend-mapping, integration §3 | Вынести `deriveEvent`/маппинг `b_state`+`c_*` в адаптер; команды → `b_*`/`set_offer`/`/drive/cancel` |
-| B3 | **OrderSnapshot** | integration §4 | Обогащать событие снимком (driver/price/candidates/offers) из сырого ответа поллера |
-| B4 | **Персистентность реестра** | integration §5, gap §2 | Активные заказы наблюдения → Redis (переживать рестарт); то же для DriverSearch |
-| B5 | **Гарантии доставки** | integration §5 | Дедуп (есть), терминальность (есть), `seq`/упорядочивание, обработка пропусков |
+| B1 | **Выделить порт `OrderGateway`** | integration §2,7 | Рефакторинг `OrderManager` в интерфейс (команды + watch/onOrderEvent) — остаётся как порт бота |
+| B2 | ~~Адаптер iBronevik~~ → **server-API adapter** | ADR-001 §3–4 | Маппинг iBronevik **уходит на сервер (Core Adapter)**. В боте — тонкий адаптер к серверному API. Интерим до готовности API — см. ADR §5.1 |
+| B3 | **OrderSnapshot** | integration §4 | Доменное представление приходит из **API**, бот не деривит из сырого поллера |
+| B4 | **Персистентность реестра** | integration §5, gap §2 | Преимущественно серверная забота (FSM-движок); в боте — только активные диалоги/watch |
+| B5 | **Гарантии доставки** | integration §5 | Преимущественно серверная забота; в боте — дедуп/упорядочивание входящих доменных событий |
+| **B0** | **Контракт Бот↔API** ⭐ | ADR-001 §4 | НОВОЕ: словарь событий вверх + представление доменного состояния вниз + транспорт. Со-дизайн с @spitegod |
 
 ---
 
@@ -45,7 +53,7 @@
 | C1 | **tracking-FSM (`order.*`)** | tracking-fsm §1–3 | Довести `order.json` до спеки (наблюдаемый трек уже ~готов); fallback для гонок (§5) |
 | C2 ✅ | **form-FSM (`form.*`) такси** | form-fsm | ✅ Схема `schemas/form.json` (from→to→people→carClass→options→when→mode→confirm) верифицирована против ядра `computeTransition`; тест `bot/tests/test_form_fsm.ts` (8 групп). Live-врезка в рантайм (отдельный тенант, validation `requirements`/parseWhen) — после прогона бота |
 | C3 ✅ | **Ветвление по режиму (guard)** | form-fsm §2 | ✅ `form.mode` разводит выбор разными событиями (`mode_offer`→offerPrice, `mode_direct/vote`→confirm); **guard** на `form.confirm`: `order.mode == 'DIRECT'`→driverSearch vs `!= 'DIRECT'`→order.start (прямое создание). Покрыто `test_form_fsm.ts` |
-| C4 🟡 | **Перенос бизнес-логики из WATaxiBot** | gap §4 | 🟡 Частично: ✅ расчёт `Actual` (business-rules §1–§2) — чистый модуль `bot/src/engine/children/order/actualPrice.ts` (вычисление отделено от представления, без eval), тест `bot/tests/test_actual_price.ts` (7 групп). ⏳ Осталось (требуют рантайма/API): votingTimer, offer, отрисовка цены в сообщении, рейтинг/отзыв → actions |
+| C4 🟡 | **Перенос бизнес-логики из WATaxiBot** | gap §4 | 🟡 Частично: ✅ расчёт `Actual` (business-rules §1–§2) — чистый модуль `bot/src/engine/children/order/actualPrice.ts` (вычисление отделено от представления, без eval), тест `bot/tests/test_actual_price.ts` (7 групп). ⚠️ **Под Вариант 3:** расчёт `Actual` — **доменное** вычисление → вероятно переезжает на сервер; в боте остаётся как клиентская валидация/рендер. Уточнить (ADR-001 §5.3). ⏳ Остальное (votingTimer/offer/рейтинг) — на стороне Domain FSM; бот рендерит |
 | C5 | **Ветки VOTE/OFFER в сопровождении** ⏳ | tracking-fsm §4 | `candidateList`/`offerList`/`boarding` поверх `OrderSnapshot` — **после ответа бэкенда** |
 
 ---
