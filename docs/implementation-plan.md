@@ -45,7 +45,7 @@
 | C1 | **tracking-FSM (`order.*`)** | tracking-fsm §1–3 | Довести `order.json` до спеки (наблюдаемый трек уже ~готов); fallback для гонок (§5) |
 | C2 ✅ | **form-FSM (`form.*`) такси** | form-fsm | ✅ Схема `schemas/form.json` (from→to→people→carClass→options→when→mode→confirm) верифицирована против ядра `computeTransition`; тест `bot/tests/test_form_fsm.ts` (8 групп). Live-врезка в рантайм (отдельный тенант, validation `requirements`/parseWhen) — после прогона бота |
 | C3 ✅ | **Ветвление по режиму (guard)** | form-fsm §2 | ✅ `form.mode` разводит выбор разными событиями (`mode_offer`→offerPrice, `mode_direct/vote`→confirm); **guard** на `form.confirm`: `order.mode == 'DIRECT'`→driverSearch vs `!= 'DIRECT'`→order.start (прямое создание). Покрыто `test_form_fsm.ts` |
-| C4 | **Перенос бизнес-логики из WATaxiBot** | gap §4 | votingTimer, offer, расчёт/отрисовка цены, рейтинг/отзыв → actions (отделить вычисление от представления) |
+| C4 🟡 | **Перенос бизнес-логики из WATaxiBot** | gap §4 | 🟡 Частично: ✅ расчёт `Actual` (business-rules §1–§2) — чистый модуль `bot/src/engine/children/order/actualPrice.ts` (вычисление отделено от представления, без eval), тест `bot/tests/test_actual_price.ts` (7 групп). ⏳ Осталось (требуют рантайма/API): votingTimer, offer, отрисовка цены в сообщении, рейтинг/отзыв → actions |
 | C5 | **Ветки VOTE/OFFER в сопровождении** ⏳ | tracking-fsm §4 | `candidateList`/`offerList`/`boarding` поверх `OrderSnapshot` — **после ответа бэкенда** |
 
 ---

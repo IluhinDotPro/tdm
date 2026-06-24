@@ -56,6 +56,11 @@
 
 > Petit Taxi в DIRECT рассчитывается по правилу §2.1 (таксометр), а не §2.3.
 
+> **Реализация (C4):** правила §1–§2 закодированы как чистая функция `computeActualPrice`
+> (`bot/src/engine/children/order/actualPrice.ts`, тест `bot/tests/test_actual_price.ts`) —
+> только вычисление, без UI/API. Pickup Fee применяется в PETIT, отсутствует в OFFER, в DIRECT
+> учтён в договорённости; флор Minimum — общий инвариант. Отрисовка суммы — отдельный слой.
+
 ---
 
 ## 3. Оплата
