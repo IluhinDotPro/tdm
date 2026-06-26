@@ -55,27 +55,44 @@
 
 Триггер: 👤 USER (команда пассажира) · 🔄 AUTO (событие водителя/Core) · ⏲ TIMER.
 
-> **Статусы заполнены по ответу Ивана (2026-06-26, `fsm-core-sync-checklist-answer.md`).** Машинный
-> перечень обещан в `domains/taxi/fsm_spec.py` + `domains/taxi/sql/taxi_order_fsm_seed.sql` — **запрошен у Ивана** для построчной сверки.
+> **✅ Машинный перечень ПОЛУЧЕН и сверён (2026-06-26):** `taxi_order_fsm_seed.sql` + `fsm_spec.py`
+> (от Ивана). Файлы **идентичны между собой** (12 состояний, 13 действий, 21 переход — 1:1) и почти
+> полностью совпадают со strawman. Колонка «Action движка» ниже — авторитетные имена действий из seed/spec.
 
-| ID | From → To | Триг. | Статус | Как в движке / что меняем |
-|---|---|:---:|:---:|---|
-| T1 | — → `order_created` | 👤 | ≈ | Создание `orders` + `server_fsm_instances`, НЕ отдельный ХП-переход |
-| T2 | `order_created` → `order_vote_waiting_candidates` | 🔄 | ✅ | Vote publish есть |
-| T3 | `order_created` → `order_offer_waiting` | 🔄 | ✅ | В taxi seed/action layer |
-| T4 | `order_created` → `order_driver_assigned` (DIRECT) | 🔄 | ✅ | Direct assign в taxi seed/action layer |
-| T5 | `order_vote_waiting_candidates` → self (отклик кандидата) | 🔄 | ≈ | **Состояние НЕ меняется**; кандидаты в `orders.metadata_json` → бот видит их только через снапшот Query API (`candidates[]`), не через смену state |
-| T6 | `order_vote_waiting_candidates` → `order_vote_driver_assigned` | 👤 | ✅ | Select candidate есть |
-| T7 | `order_vote_driver_assigned` → `order_vote_waiting_candidates` (release) | 👤 | ✅ | Release candidate есть (= частичный re-matching) |
-| T8 | `order_offer_waiting` → self (предложение водителя) | 🔄 | ≈ | **Состояние НЕ меняется**; offers в `orders.metadata_json` → как T5 |
-| T9 | `order_offer_waiting` → `order_driver_assigned` (selectOffer) | 👤 | ✅ | Select offer есть |
-| T10 | `order_*_driver_assigned` → `order_driver_arrived` | 🔄 | ✅ | Driver arrived есть |
-| T11 | `order_driver_arrived` → `order_in_ride` (+confirmBoarding VOTE) | 🔄/👤 | ✅ | Start ride есть; boarding — guard/effect, не отдельное состояние |
-| T12 | `order_in_ride` → `order_completed` | 🔄 | ✅ | Finish ride есть |
-| T13 | `order_in_ride` → `ride_interrupted` | 🔄/👤 | ✅ | Ride interrupted есть |
-| T14 | {created, waiting_*, *_assigned, arrived} → `order_cancelled` | 👤 | ⚠️ | Есть cancel до назначения/в ожидании/после назначения. **НЕТ `order_driver_arrived → order_cancelled`** — Иван спрашивает «если подтверждаем отмену до старта». **Наш ответ: ДА, добавить** (business-rules §3/§4.1: CANCELLED разрешён до BOARDING_VERIFICATION = `order_driver_arrived`) |
-| T15 | {created, waiting_*, *_assigned} → `order_expired` | ⏲ | ⚠️ | Переходы для `created`/`waiting` есть, но **timer worker НЕ построен** — без него expire не срабатывает |
-| T16 | `order_vote_*` → `order_vote_no_show` | ⏲/🔄 | ≈ | Есть `order_vote_driver_assigned → order_vote_no_show`; зависит от timer worker (T15) для срабатывания по `pickupWindowTimeout` |
+| ID | From → To | Триг. | Action движка | Статус | Сверка с seed/spec (2026-06-26) |
+|---|---|:---:|---|:---:|---|
+| T1 | — → `order_created` | 👤 | — (init) | ✅ | Подтверждено: `order_created` — начальное; в seed входящего перехода НЕТ (создаётся при `POST /orders`, не ХП-действием) |
+| T2 | `order_created` → `order_vote_waiting_candidates` | 🔄 | `order_publish_vote` | ✅ | Есть 1:1 |
+| T3 | `order_created` → `order_offer_waiting` | 🔄 | `order_publish_offer` | ✅ | Есть 1:1 |
+| T4 | `order_created` → `order_driver_assigned` (DIRECT) | 🔄 | `order_assign_direct` | ✅ | Есть 1:1 |
+| T5 | `order_vote_waiting_candidates` → self (отклик кандидата) | 🔄 | — | ✅ | Подтверждено: self-перехода в seed НЕТ (и не нужен); кандидаты в `orders.metadata_json`, видны через снапшот Query API (`candidates[]`) |
+| T6 | `order_vote_waiting_candidates` → `order_vote_driver_assigned` | 👤 | `order_select_candidate` | ✅ | Есть 1:1 |
+| T7 | `order_vote_driver_assigned` → `order_vote_waiting_candidates` (release) | 👤 | `order_release_candidate` | ✅ | Есть 1:1 (= частичный re-matching, развилка C) |
+| T8 | `order_offer_waiting` → self (предложение водителя) | 🔄 | — | ✅ | Подтверждено: self-перехода нет; offers в `orders.metadata_json` |
+| T9 | `order_offer_waiting` → `order_driver_assigned` (selectOffer) | 👤 | `order_select_offer` | ✅ | Есть 1:1 |
+| T10 | `order_*_driver_assigned` → `order_driver_arrived` | 🔄 | `order_arrive` | ✅ | Есть ДВА перехода: из `order_vote_driver_assigned` И из `order_driver_assigned` |
+| T11 | `order_driver_arrived` → `order_in_ride` (+confirmBoarding VOTE) | 🔄/👤 | `order_start` | ✅ | Есть 1:1; boarding — guard/effect (отдельного действия в seed нет) ✓ |
+| T12 | `order_in_ride` → `order_completed` | 🔄 | `order_finish` | ✅ | Есть 1:1 |
+| T13 | `order_in_ride` → `ride_interrupted` | 🔄/👤 | `order_interrupt_ride` | ✅ | Есть 1:1 |
+| T14 | {created, vote_waiting, offer_waiting, vote_assigned, driver_assigned, **arrived**} → `order_cancelled` | 👤 | `order_cancel_by_client` | ✅ | **🎉 ЗАКРЫТО: `order_driver_arrived → order_cancelled` в seed ЕСТЬ — Иван добавил.** Все 6 источников cancel присутствуют |
+| T15 | {created, vote_waiting, offer_waiting} → `order_expired` | ⏲ | `order_expire` | ≈ | Есть ТОЛЬКО из 3 до-назначенческих фаз. **Из `*_assigned` expire НЕТ** — движок сузил (после назначения — no_show, не expire); наш strawman `*_assigned → expired` был избыточен. Сам переход есть, но триггер — timer worker (🔴 не построен) |
+| T16 | `order_vote_driver_assigned` → `order_vote_no_show` | ⏲/🔄 | `order_no_show` | ✅ | Есть 1:1 (единственный источник — `order_vote_driver_assigned`, до прибытия). ⚠️ Аналога для DIRECT/OFFER (`order_driver_assigned` не приехал) НЕТ → вопрос к Ивану/бизнесу. Триггер — timer worker (🔴) |
+
+> **Расхождения и вопросы по машинной сверке (2026-06-26):**
+> 1. **T14 — закрыт ✅.** `order_driver_arrived → order_cancelled` теперь в seed. Наш запрос выполнен.
+> 2. **T15 — expire сужен (расхождение в нашу пользу).** Движок допускает expire только из `created` /
+>    `order_vote_waiting_candidates` / `order_offer_waiting`. Из `*_assigned`-состояний expire НЕТ — и это
+>    правильно: после назначения работает no_show, не expire. Strawman T15 (`*_assigned → expired`) —
+>    **исправить** (убрать `*_assigned`).
+> 3. **No-show асимметричен.** `order_no_show` ведёт только из `order_vote_driver_assigned` (VOTE). Для
+>    DIRECT/OFFER (`order_driver_assigned`) при «водитель не приехал» в seed нет ни no_show, ни expire —
+>    только ручной `order_cancel_by_client`. **Вопрос Ивану/Валентину:** нужен ли терминал по таймауту для
+>    DIRECT/OFFER-назначения, или для них достаточно ручной отмены?
+> 4. **Терминалы подтверждены машинно:** из `order_completed`/`order_cancelled`/`order_expired`/
+>    `ride_interrupted`/`order_vote_no_show` исходящих переходов в seed НЕТ — все 5 терминальны ✓.
+> 5. **`order_vote_no_show` терминально** (re-matching из него нет) — для MVP ОК (развилка C: saga после MVP).
+> 6. **timeout/expire/no_show — это ХП-действия** (`order_expire`, `order_no_show`), а НЕ магия: их обязан
+>    дёргать **timer worker** по `next_timer_at` (🔴 до MVP). Без него T15/T16 не сработают, хотя переходы есть.
 
 ---
 
@@ -102,8 +119,9 @@
 `order_vote_waiting_confirmation`, `order_offer_waiting_price` и т.п.):
 
 ```
-Нет. Иван промежуточных taxi-состояний не закладывал (12 достаточно для MVP).
-Подтвердить по машинному seed (taxi_order_fsm_seed.sql), когда получим файл.
+Нет. ✅ ПОДТВЕРЖДЕНО машинно (taxi_order_fsm_seed.sql + fsm_spec.py, 2026-06-26):
+INSERT в fsm_states содержит ровно 12 имён, совпадающих 1:1 с states.md §1a.
+Промежуточных (order_vote_waiting_confirmation, order_offer_waiting_price и т.п.) НЕТ.
 ```
 
 ---
@@ -191,10 +209,11 @@
 - **Что меняем в `fsm-core-design.md` / `states.md`:** развилка §2.4 / вопрос №1 §11 — **закрыты** Вариантом A
   (отметка внесена в `fsm-core-design.md §11`). T14 — добавить `order_driver_arrived → order_cancelled`.
   T5/T8 — зафиксировать, что self-переход не меняет state (кандидаты/офферы через снапшот). Имена 12 состояний подтверждены.
-- **Машинный перечень состояний/переходов движка получен:** ☐ да ☑ нет (обещан) → где: `domains/taxi/fsm_spec.py` + `domains/taxi/sql/taxi_order_fsm_seed.sql` — **запрошен у Ивана**.
+- **Машинный перечень состояний/переходов движка получен:** ☑ да ☐ нет → `taxi_order_fsm_seed.sql` + `fsm_spec.py` (от Ивана, 2026-06-26). Построчная сверка T1–T16 проведена (см. §1).
+- **Итог сверки T1–T16:** 14 переходов совпали 1:1; T1/T5/T8 — корректно отсутствуют как переходы (init / self без смены state); **T14 закрыт** (Иван добавил `arrived → cancelled`); **T15 — единственное расхождение** (expire сужен до до-назначенческих фаз — в нашу пользу, strawman правим). Промежуточных состояний нет, 12 подтверждены машинно, 5 терминалов подтверждены.
 - **Следующие действия:**
-  1. Запросить у Ивана `fsm_spec.py` + `taxi_order_fsm_seed.sql` → построчная сверка T1–T16, проверка отсутствия промежуточных состояний.
-  2. Подтвердить Ивану: T14 `order_driver_arrived → order_cancelled` — **обязателен** (business-rules §3/§4.1).
-  3. Серверные дыры рантайма по критичности (ревью 2026-06-26): 🔴 **до MVP** — timer worker, `availableActions` через Domain API, атомарность записи состояния; 🟡 **после MVP** — guard registry, outbox/idempotency.
-  4. **Архитектурный backlog:** «не потерять универсальность движка» — каждое решение проверять: расширение движка или временная taxi-only реализация? (фильтр — Максим, референс постаматов).
-  5. Перенести результаты в `fsm-core-design.md`/`states.md` (частично сделано).
+  1. ✅ Сверка получена и проведена. T14 подтверждён в seed — **запрос выполнен Иваном**.
+  2. Поправить strawman `fsm-core-design.md` §5: T14 (есть), T15 (убрать `*_assigned → expired`), внести имена actions движка. *(в работе)*
+  3. **Вопрос Ивану/Валентину (новый):** no-show асимметричен — `order_no_show` только из VOTE (`order_vote_driver_assigned`). Нужен ли терминал по таймауту для DIRECT/OFFER-назначения (`order_driver_assigned` не приехал), или достаточно ручной отмены? (см. §1, расхождение #3).
+  4. Серверные дыры рантайма по критичности (ревью 2026-06-26): 🔴 **до MVP** — **timer worker** (без него T15/T16 не сработают, хотя переходы в seed есть), `availableActions` через Domain API, атомарность записи состояния; 🟡 **после MVP** — guard registry, outbox/idempotency. (FSM Engine RFC по этим механизмам — отправлен Максиму, `fsm-engine-rfc.md`.)
+  5. **Архитектурный backlog:** «не потерять универсальность движка» — каждое решение проверять: расширение движка или временная taxi-only реализация? (фильтр — Максим, референс постаматов).
