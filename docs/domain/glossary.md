@@ -27,7 +27,25 @@
 | **Order Lifecycle** | Жизненный цикл заказа: укрупнённые стадии Creation → Discovery → Candidate Formation → Carrier Determination → Rendezvous → Boarding Verification → Transportation → Completion. |
 | **Order FSM** | Конечный автомат жизненного цикла заказа (внешний по отношению к боту). Спецификация — в `docs/order-fsm/`. |
 | **OrderExpiration** | Момент утраты актуальности заказа. После него заказ не может получить исполнителя. |
-| **ExecutionOutcome** | Итог исполнения заказа. Значения: `completed`, `expired`, `cancelled`, `external_carrier`, `incident`. |
+| **ExecutionOutcome** | Итог исполнения заказа. Значения: `completed`, `expired`, `cancelled`, `external_carrier`, `early_terminated`, `incident`. Канон значений — [execution-models.md](execution-models.md) §8. |
+
+> **Каноника имён** (во избежание разночтений — одно явление по-разному пишется на разных слоях, это
+> **не разные сущности**):
+> - **состояние движка** (snake_case, в `fsm_states` / `orders.status`): `order_created`, `order_vote_no_show`,
+>   `ride_interrupted`, `order_cancelled`…
+> - **UI-статус** (UPPER, вычисляет бот; проекция состояния 1:1): `SEARCHING`, `NO_SHOW`, `RIDE_INTERRUPTED`,
+>   `CANCELLED`… — таблица в [../order-fsm/states.md](../order-fsm/states.md) §1a.
+> - **действие движка** (snake_case, в `fsm_actions`; *приводит* в состояние, само статусом не является):
+>   `order_no_show`, `order_interrupt_ride`, `order_expire`…
+> - **ExecutionOutcome** (lower): `early_terminated`, `cancelled`, `completed`…
+>
+> Частые точки путаницы:
+> - состояние `order_vote_no_show` (**только VOTE**; действие `order_no_show`) → UI-статус `NO_SHOW`. Это
+>   **не** `NO_SHOW_DRIVER`: последний — один универсальный терминал будущего *целевого* FSM (не per-mode),
+>   [../order-fsm/states.md](../order-fsm/states.md) §4.
+> - состояние `ride_interrupted` / UI-статус `RIDE_INTERRUPTED` (досрочное прекращение); его **исход** —
+>   `early_terminated`. Встречавшееся в ранних источниках `EARLY_TERMINATED` — то же самое (исход в верхнем
+>   регистре), отдельной сущности нет.
 
 ---
 

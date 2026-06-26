@@ -39,6 +39,73 @@ WhatsApp / Web / Driver UI     ← каналы (наш WhatsApp-бот — зд
 
 ---
 
+## 1а. Архитектура в нотации C4 (Context + Container)
+
+Та же модель, что и пайплайн выше (§1), в нотации [C4](https://c4model.com): кто пользуется системой
+(Context) и из каких блоков она состоит (Container). Компактная версия — в [README §TL;DR](README.md).
+
+**Уровень 1 — System Context.** Кто и зачем взаимодействует с ТДМ.
+
+```mermaid
+flowchart TB
+    pass["👤 Пассажир"]
+    drv["👤 Водитель"]
+    tdm["🟦 Система ТДМ<br/>заказ такси через WhatsApp/Telegram<br/>+ web-UI водителя"]
+    ibr["⬜ iBronevik<br/>внешняя система перевозок<br/>(НЕ источник истины по состоянию)"]
+
+    pass -->|"создаёт и ведёт заказ · WhatsApp/Telegram"| tdm
+    drv -->|"отклик, поездка · web-UI"| tdm
+    tdm -->|"команды, статусы · через Core Adapter"| ibr
+
+    classDef person fill:#08427b,color:#fff,stroke:#052e56;
+    classDef ext fill:#999,color:#fff,stroke:#6b6b6b;
+    class pass,drv person;
+    class ibr ext;
+```
+
+**Уровень 2 — Container.** Из чего состоит ТДМ и кто чем владеет (см. §2–3).
+
+```mermaid
+flowchart TB
+    pass["👤 Пассажир"]
+    drv["👤 Водитель"]
+
+    subgraph TDM["Система ТДМ"]
+        bot["🤖 WhatsApp/Telegram Bot · MultiBot/Node.js<br/>Form FSM + Passenger UI Resolver<br/>+ OrderGateway-клиент"]
+        dui["🖥️ Driver Web UI · @spitegod"]
+        api["🔌 Domain API · CQRS (Command + Query)"]
+        fsm["⚙️ Domain FSM · FSM-движок (постаматный)<br/>Order FSM / Driver FSM — ВЛАДЕЕТ состоянием"]
+        core["🔗 Core Adapter<br/>маппинг b_state/c_state, поллинг, команды"]
+        redis[("🗄️ Redis · состояние диалога бота")]
+        db[("🗄️ БД движка<br/>fsm_states / transitions / action_logs")]
+    end
+
+    ibr["⬜ iBronevik · внешняя система"]
+
+    pass -->|"WhatsApp/Telegram"| bot
+    drv -->|"web"| dui
+    bot -->|"OrderGateway: команды ↑ / снапшот ↓ · REST+polling"| api
+    dui --> api
+    api --> fsm
+    fsm --> db
+    fsm -->|"внешние данные"| core
+    core --> ibr
+    bot -.->|"диалог"| redis
+
+    classDef person fill:#08427b,color:#fff,stroke:#052e56;
+    classDef ext fill:#999,color:#fff,stroke:#6b6b6b;
+    classDef own fill:#1168bd,color:#fff,stroke:#0b4884;
+    class pass,drv person;
+    class ibr ext;
+    class bot,redis own;
+```
+
+> **Зоны ответственности:** синим (`bot`, `redis`) — **наш WhatsApp-бот** (Form FSM + UI Resolver,
+> §3); остальное внутри ТДМ — **сервер** (@spitegod): Domain FSM владеет состоянием, Core Adapter
+> прячет iBronevik. Бот ходит **только** в Domain API, не в iBronevik напрямую (инвариант §1).
+
+---
+
 ## 2. Пять FSM и кто чем владеет
 
 Свод доменных состояний (формулировки заказчика, диалог 2) с нашими доками:

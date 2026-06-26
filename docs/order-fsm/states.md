@@ -167,7 +167,7 @@ DRIVER_ASSIGNED → EN_ROUTE/HEADING_TO_PICKUP → ARRIVAL
 - `CANCELLED` допустим **только до начала поездки** — из `CREATED`, `MATCHING_STARTED`,
   `WAITING_FOR_CANDIDATES`, `DRIVER_ASSIGNED`, `ARRIVAL`, `BOARDING_VERIFICATION`.
 - После `RIDE_STARTED` отмены нет; досрочное прекращение поездки (высадка не в плановой точке) —
-  **отдельное терминальное** `RIDE_INTERRUPTED` (= `EARLY_TERMINATED`), **отличное от** `CANCELLED`.
+  **отдельное терминальное** `RIDE_INTERRUPTED` (исход `early_terminated`), **отличное от** `CANCELLED`.
 - Неоплата и SOS — **инциденты вне FSM**, состояние не меняют ([business-rules.md](../domain/business-rules.md) §5).
 
 Отличия целевого от наблюдаемого (gap для будущего):
