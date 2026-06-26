@@ -84,10 +84,13 @@
 >    `order_vote_waiting_candidates` / `order_offer_waiting`. Из `*_assigned`-состояний expire НЕТ — и это
 >    правильно: после назначения работает no_show, не expire. Strawman T15 (`*_assigned → expired`) —
 >    **исправить** (убрать `*_assigned`).
-> 3. **No-show асимметричен.** `order_no_show` ведёт только из `order_vote_driver_assigned` (VOTE). Для
->    DIRECT/OFFER (`order_driver_assigned`) при «водитель не приехал» в seed нет ни no_show, ни expire —
->    только ручной `order_cancel_by_client`. **Вопрос Ивану/Валентину:** нужен ли терминал по таймауту для
->    DIRECT/OFFER-назначения, или для них достаточно ручной отмены?
+> 3. **No-show асимметричен → решение за Валентином.** `order_no_show` ведёт только из
+>    `order_vote_driver_assigned` (VOTE). Для DIRECT/OFFER (`order_driver_assigned`) при «водитель не
+>    приехал» в seed нет ни no_show, ни expire — только ручной `order_cancel_by_client`. **Иван
+>    (2026-06-26): намеренно** — не плодил состояния без подтверждённого бизнес-правила. Если правила
+>    требуют терминал и для DIRECT/OFFER — Иван советует **одно универсальное состояние** (`order_no_show`
+>    для всех режимов), но это расширение за 12. → **Вопрос Валентину:** нужен ли авто-терминал «назначенный
+>    не приехал» для DIRECT/OFFER, или достаточно ручной отмены?
 > 4. **Терминалы подтверждены машинно:** из `order_completed`/`order_cancelled`/`order_expired`/
 >    `ride_interrupted`/`order_vote_no_show` исходящих переходов в seed НЕТ — все 5 терминальны ✓.
 > 5. **`order_vote_no_show` терминально** (re-matching из него нет) — для MVP ОК (развилка C: saga после MVP).
@@ -214,6 +217,6 @@ INSERT в fsm_states содержит ровно 12 имён, совпадающ
 - **Следующие действия:**
   1. ✅ Сверка получена и проведена. T14 подтверждён в seed — **запрос выполнен Иваном**.
   2. Поправить strawman `fsm-core-design.md` §5: T14 (есть), T15 (убрать `*_assigned → expired`), внести имена actions движка. *(в работе)*
-  3. **Вопрос Ивану/Валентину (новый):** no-show асимметричен — `order_no_show` только из VOTE (`order_vote_driver_assigned`). Нужен ли терминал по таймауту для DIRECT/OFFER-назначения (`order_driver_assigned` не приехал), или достаточно ручной отмены? (см. §1, расхождение #3).
-  4. Серверные дыры рантайма по критичности (ревью 2026-06-26): 🔴 **до MVP** — **timer worker** (без него T15/T16 не сработают, хотя переходы в seed есть), `availableActions` через Domain API, атомарность записи состояния; 🟡 **после MVP** — guard registry, outbox/idempotency. (FSM Engine RFC по этим механизмам — отправлен Максиму, `fsm-engine-rfc.md`.)
+  3. **⚖️ Решение Валентину (ответ Ивана получен 2026-06-26):** no-show только из VOTE — **намеренно**. Нужен ли авто-терминал «назначенный не приехал» для DIRECT/OFFER? Если да — обобщить в универсальное `order_no_show` (расширение за 12) + timer worker. Если нет — оставить ручной cancel. (см. §1, расхождение #3).
+  4. Серверные дыры рантайма по критичности (ревью 2026-06-26): 🔴 **до MVP** — **timer worker** (без него T15/T16 не сработают, хотя переходы в seed есть; **Иван подтвердил 2026-06-26** — нужен worker на `server_fsm_instances.next_timer_at`), `availableActions` через Domain API, атомарность записи состояния; 🟡 **после MVP** — guard registry, outbox/idempotency. (FSM Engine RFC по этим механизмам — отправлен Максиму, `fsm-engine-rfc.md`.)
   5. **Архитектурный backlog:** «не потерять универсальность движка» — каждое решение проверять: расширение движка или временная taxi-only реализация? (фильтр — Максим, референс постаматов).
