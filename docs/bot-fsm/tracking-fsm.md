@@ -42,6 +42,11 @@
 > Это 1:1 фактический `order.json` MultiBot (start/approved/driverArrived/driverStarted/completed/
 > review/canceled/cancelReason). Подтверждено чтением кода.
 
+> **`order.cancelReason` обязателен при отмене пассажиром** (Валентин 2026-06-26,
+> [../domain/business-rules.md](../domain/business-rules.md) §4.1.1): причину выбирают **из списка**,
+> бот шлёт код в `POST /orders/{id}/cancel {reason}`. Состав справочника причин для Марокко пока не задан
+> (placeholder 1–4 из MultiBot). Автоотмена по таймеру причину НЕ спрашивает — её ставит сервер.
+
 ---
 
 ## 2. Диаграмма (наблюдаемый трек)

@@ -64,6 +64,21 @@
   `minimumRidePrice` и `actual` сервер считает сам (Core), в запрос на создание не входят.
 - Ответ: `{ "orderId": <id> }` (далее бот поллит `GET /orders/{orderId}`).
 
+### Payload отмены — `POST /orders/{orderId}/cancel`
+
+```json
+{ "reason": "<код причины из справочника>" }
+```
+
+- `reason` — **обязателен** при отмене пассажиром (бизнес-правило
+  [../domain/business-rules.md](../domain/business-rules.md) §4.1.1: причину выбирают из списка, не свободный
+  текст). Бот показывает справочник причин (под-диалог `order.cancelReason`,
+  [../bot-fsm/tracking-fsm.md](../bot-fsm/tracking-fsm.md) §1) и шлёт выбранный код.
+- Автоотмена по таймеру — **не** через этот эндпоинт: причину (`«отмена по таймеру»`) проставляет сервер
+  (timer worker), бот её только читает из снапшота (`cancellationReason`).
+- Состав справочника причин для Марокко заказчиком пока не задан (открытый вопрос business-rules §4.1.1) —
+  до этого код = placeholder.
+
 ---
 
 ## 3. Query API (доменное состояние → бот для UI Resolver)
@@ -91,6 +106,7 @@
     "currency": ""
   },
   "paymentStatus": "pending",
+  "cancellationReason": null,
   "updatedAt": "..."
 }
 ```
@@ -105,6 +121,7 @@
 | `offers` | OFFER: предложения водителей (та же структура + цена/eta/comment предложения). |
 | `price` | Все 4 формы: `estimated / pickupFee / minimumRidePrice / actual` (+`currency`). Считает Core; бот рендерит. `actual` = `null` до завершения. |
 | `paymentStatus` | Оплата — только наличные; неоплата = инцидент вне FSM (состояние не меняет). |
+| `cancellationReason` | `null` пока заказ не отменён; иначе код причины. Пассажир — выбор из списка; таймер — системный `«отмена по таймеру»` (business-rules §4.1.1). Для отображения/аналитики. |
 | `updatedAt` | ISO-метка последнего изменения. |
 
 > **UI Resolver** (бот) проецирует `state` → UI-каноники (`SEARCHING/ASSIGNED/DRIVER_ARRIVED/IN_RIDE/

@@ -74,7 +74,7 @@ Required помечены ✱. Остальные опциональны.
 |---|---|---|
 | `set_performer` | `{performer, u_id, t_id?, data?, b_driver_code?}` | Выбор кандидата/исполнителя (VOTE и OFFER) |
 | `set_offer` | `{u_id, t_id?}` | Предложить заказ **конкретному** водителю (OFFER) |
-| `set_cancel_state` | `{reason?, forced?, cancel_states?}` | Отмена заказа |
+| `set_cancel_state` | `{reason, forced?, cancel_states?}` | Отмена заказа. `reason` **обязателен** при отмене пассажиром (выбор из списка, business-rules §4.1.1); при автоотмене по таймеру сервер ставит фикс. `«отмена по таймеру»` |
 | `set_confirm_state` | `{b_estimate_waiting?}` | Подтвердить созданный заказ (VOTE) |
 | `set_arrive_state` | — | Водитель прибыл |
 | `set_start_state` | — | Водитель начал поездку |
@@ -100,7 +100,7 @@ Required помечены ✱. Остальные опциональны.
 | confirm | `set_confirm_state` | — | `confirmVoteOrder` |
 | select | `set_performer {u_id, performer:"1"}` | `order_select_candidate` | `selectDriver` |
 | release | `set_performer {u_id, performer:"0"}` | `order_release_candidate` | `clearSelection` |
-| cancel | `set_cancel_state {reason}` | `order_cancel_by_client` | `cancelOrder` |
+| cancel | `set_cancel_state {reason}` (reason обязателен, из списка) | `order_cancel_by_client` | `cancelOrder` |
 | no-show | (нет эндпоинта) | `order_no_show` | `noShow` |
 
 ### OFFER (`offer_client_emulator_v1`)

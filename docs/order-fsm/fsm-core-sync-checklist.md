@@ -39,7 +39,7 @@
 | Таблица переходов (`from→to+action`) | ✅ | `fsm_states`/`fsm_actions`/`fsm_transitions`; ХП `fsm_perform_action` |
 | Auto-действия на переходе | ≈ | **Иван:** action как триггер перехода есть; side-effects держать в action layer/worker, НЕ внутри ХП |
 | Guard / условия на переходе | ❌ | **Иван:** отдельного guard-слоя в ХП НЕТ; проверки — в API/action layer до вызова `fsm_perform_action` |
-| Timer subsystem (таймеры состояния) | ❌ | **Иван:** универсального timer subsystem НЕТ; предложение — worker + `server_fsm_instances.next_timer_at` (→ §5) |
+| Timer subsystem (таймеры состояния) | ❌ | **Иван:** универсального timer subsystem НЕТ; предложение — worker + `server_fsm_instances.next_timer_at` (→ §5). **Ревью 2026-06-26:** простой **Timer Worker — в MVP** (T15/T16 без него мертвы), универсальный **Timer Subsystem — после MVP** |
 | Event journal / журнал переходов | ≈ | **Иван:** есть `fsm_action_logs`, но это журнал переходов, НЕ event store/outbox/idempotency (= §4 вопрос 7) |
 | Button states (UI-проекция действий) | ✅ | `button_states` есть; **Иван:** для taxi правильнее отдавать `availableActions` через Domain API (= наш B0 Вариант 1) |
 | Nested FSM (вложенные машины) | ❌ | **Иван:** не подтверждено и не реализовано → развилка B решается БЕЗ под-FSM |
@@ -76,7 +76,7 @@
 | T13 | `order_in_ride` → `ride_interrupted` | 🔄/👤 | `order_interrupt_ride` | ✅ | Есть 1:1 |
 | T14 | {created, vote_waiting, offer_waiting, vote_assigned, driver_assigned, **arrived**} → `order_cancelled` | 👤 | `order_cancel_by_client` | ✅ | **🎉 ЗАКРЫТО: `order_driver_arrived → order_cancelled` в seed ЕСТЬ — Иван добавил.** Все 6 источников cancel присутствуют |
 | T15 | {created, vote_waiting, offer_waiting} → `order_expired` | ⏲ | `order_expire` | ≈ | Есть ТОЛЬКО из 3 до-назначенческих фаз. **Из `*_assigned` expire НЕТ** — движок сузил (после назначения — no_show, не expire); наш strawman `*_assigned → expired` был избыточен. Сам переход есть, но триггер — timer worker (🔴 не построен) |
-| T16 | `order_vote_driver_assigned` → `order_vote_no_show` | ⏲/🔄 | `order_no_show` | ✅ | Есть 1:1 (единственный источник — `order_vote_driver_assigned`, до прибытия). ⚠️ Аналога для DIRECT/OFFER (`order_driver_assigned` не приехал) НЕТ → вопрос к Ивану/бизнесу. Триггер — timer worker (🔴) |
+| T16 | `order_vote_driver_assigned` → `order_vote_no_show` | ⏲/🔄 | `order_no_show` | ✅ | Есть 1:1 (единственный источник — `order_vote_driver_assigned`, до прибытия). Аналога для DIRECT/OFFER НЕТ — **намеренно**, ✅ решено (Валентин 2026-06-26: ручная отмена → `order_cancelled`; различаем событие, не терминал). Триггер — timer worker (🔴, в MVP) |
 
 > **Расхождения и вопросы по машинной сверке (2026-06-26):**
 > 1. **T14 — закрыт ✅.** `order_driver_arrived → order_cancelled` теперь в seed. Наш запрос выполнен.
@@ -84,18 +84,20 @@
 >    `order_vote_waiting_candidates` / `order_offer_waiting`. Из `*_assigned`-состояний expire НЕТ — и это
 >    правильно: после назначения работает no_show, не expire. Strawman T15 (`*_assigned → expired`) —
 >    **исправить** (убрать `*_assigned`).
-> 3. **No-show асимметричен → решение за Валентином.** `order_no_show` ведёт только из
->    `order_vote_driver_assigned` (VOTE). Для DIRECT/OFFER (`order_driver_assigned`) при «водитель не
->    приехал» в seed нет ни no_show, ни expire — только ручной `order_cancel_by_client`. **Иван
->    (2026-06-26): намеренно** — не плодил состояния без подтверждённого бизнес-правила. Если правила
->    требуют терминал и для DIRECT/OFFER — Иван советует **одно универсальное состояние** (`order_no_show`
->    для всех режимов), но это расширение за 12. → **Вопрос Валентину:** нужен ли авто-терминал «назначенный
->    не приехал» для DIRECT/OFFER, или достаточно ручной отмены?
+> 3. **No-show асимметричен → ✅ РЕШЕНО (Валентин 2026-06-26): ручная отмена, новых терминалов нет.**
+>    `order_no_show` ведёт только из `order_vote_driver_assigned` (VOTE). Для DIRECT/OFFER при «водитель
+>    не приехал» терминала по таймауту нет — **намеренно** (Иван: не плодить состояния без правила; принят
+>    верным). Принята позиция Павла: для DIRECT/OFFER — только **ручная отмена** (→ `order_cancelled`).
+>    `no_show` остаётся специфичным для VOTE (клиент выбрал конкретного водителя). **Принцип на будущее:**
+>    различать **событие** (`pickup_timeout`), а не терминал — оно разрешается по режиму (VOTE→`order_vote_no_show`,
+>    DIRECT/OFFER→`order_cancelled`); см. [fsm-core-design.md](fsm-core-design.md) §5a. 12 состояний — без изменений.
 > 4. **Терминалы подтверждены машинно:** из `order_completed`/`order_cancelled`/`order_expired`/
 >    `ride_interrupted`/`order_vote_no_show` исходящих переходов в seed НЕТ — все 5 терминальны ✓.
 > 5. **`order_vote_no_show` терминально** (re-matching из него нет) — для MVP ОК (развилка C: saga после MVP).
 > 6. **timeout/expire/no_show — это ХП-действия** (`order_expire`, `order_no_show`), а НЕ магия: их обязан
 >    дёргать **timer worker** по `next_timer_at` (🔴 до MVP). Без него T15/T16 не сработают, хотя переходы есть.
+>    **Реклассификация (ревью 2026-06-26):** Timer Worker — **часть MVP** (не «после MVP»); универсальный
+>    Timer Subsystem (параметризуемые таймеры/registry) — после MVP. См. §5 и [fsm-core-design.md](fsm-core-design.md) §7.
 
 ---
 
@@ -191,6 +193,8 @@ INSERT в fsm_states содержит ровно 12 имён, совпадающ
 ## 5. Таймеры ([fsm-core-design.md](fsm-core-design.md) §7)
 
 > **Иван (2026-06-26):** универсального timer subsystem НЕТ. Все таймеры — через будущий worker + `server_fsm_instances.next_timer_at`. Сейчас НИ ОДИН не работает в рантайме.
+>
+> **Реклассификация (ревью 2026-06-26):** таймеры стали **обязательной частью исполнения FSM**, а не «архитектурным улучшением» — без worker'а `order_expire`/`order_no_show` недостижимы при штатном сценарии. Разделяем: **Timer Worker** (запускает timeout-действия по `next_timer_at`; механизм простой) — **в MVP**; **универсальный Timer Subsystem** (параметризуемые таймеры, registry, приоритеты, параллельность) — **после MVP**.
 
 | Таймер | Фаза | Истечение → переход | Механизм в движке |
 |---|---|---|---|
@@ -217,6 +221,6 @@ INSERT в fsm_states содержит ровно 12 имён, совпадающ
 - **Следующие действия:**
   1. ✅ Сверка получена и проведена. T14 подтверждён в seed — **запрос выполнен Иваном**.
   2. Поправить strawman `fsm-core-design.md` §5: T14 (есть), T15 (убрать `*_assigned → expired`), внести имена actions движка. *(в работе)*
-  3. **⚖️ Решение Валентину (ответ Ивана получен 2026-06-26):** no-show только из VOTE — **намеренно**. Нужен ли авто-терминал «назначенный не приехал» для DIRECT/OFFER? Если да — обобщить в универсальное `order_no_show` (расширение за 12) + timer worker. Если нет — оставить ручной cancel. (см. §1, расхождение #3).
-  4. Серверные дыры рантайма по критичности (ревью 2026-06-26): 🔴 **до MVP** — **timer worker** (без него T15/T16 не сработают, хотя переходы в seed есть; **Иван подтвердил 2026-06-26** — нужен worker на `server_fsm_instances.next_timer_at`), `availableActions` через Domain API, атомарность записи состояния; 🟡 **после MVP** — guard registry, outbox/idempotency. (FSM Engine RFC по этим механизмам — отправлен Максиму, `fsm-engine-rfc.md`.)
+  3. ✅ **Решено (Валентин, 2026-06-26):** no-show для DIRECT/OFFER **не вводим** — ручная отмена (→ `order_cancelled`). Принята позиция Павла; `order_vote_no_show` остаётся специфичным для VOTE; 12 состояний без изменений. На будущее — различать **событие** (`pickup_timeout`), а не терминал (§5a в [fsm-core-design.md](fsm-core-design.md)). (см. §1, расхождение #3).
+  4. Серверные дыры рантайма по критичности (ревью 2026-06-26): 🔴 **до MVP** — **Timer Worker** (без него T15/T16 не сработают, хотя переходы в seed есть; **Иван подтвердил 2026-06-26** — нужен worker на `server_fsm_instances.next_timer_at`; ревью 2026-06-26 закрепило worker как часть MVP, а не «после»), `availableActions` через Domain API, атомарность записи состояния; 🟡 **после MVP** — guard registry, **универсальный Timer Subsystem** (параметризуемые таймеры/registry, в отличие от простого worker'а), outbox/idempotency. (FSM Engine RFC по этим механизмам — отправлен Максиму, `fsm-engine-rfc.md`.)
   5. **Архитектурный backlog:** «не потерять универсальность движка» — каждое решение проверять: расширение движка или временная taxi-only реализация? (фильтр — Максим, референс постаматов).

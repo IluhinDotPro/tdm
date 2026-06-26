@@ -48,6 +48,13 @@
 
 ⛔ — терминальное.
 
+> **Причина отмены — атрибут терминала, не отдельное состояние** (business-rules
+> [../domain/business-rules.md](../domain/business-rules.md) §4.1.1, Валентин 2026-06-26). `order_cancelled`
+> несёт `cancellationReason` из выбора пассажира (обязателен, из списка); системные завершения по таймеру
+> (`order_expired` до назначения / `order_vote_no_show` после) несут фикс. системную причину
+> (`«отмена по таймеру»`), проставляемую timer worker'ом. Снапшот экспонирует поле `cancellationReason`
+> ([../integration/bot-domain-api-contract.md](../integration/bot-domain-api-contract.md) §3).
+
 > ✅ **Подтверждено машинно (2026-06-26):** `taxi_order_fsm_seed.sql` + `fsm_spec.py` (Иван) содержат ровно
 > эти 12 имён состояний (1:1), без промежуточных. Все 5 терминалов подтверждены отсутствием исходящих
 > переходов в seed. Построчная сверка переходов — [fsm-core-sync-checklist.md](fsm-core-sync-checklist.md) §1.
@@ -56,6 +63,15 @@
 > из снапшота ведут рендер кнопок без знания ботом бизнес-правил.
 > `order_vote_driver_assigned` и `order_driver_assigned` сводятся к `ASSIGNED` для пассажира, но на
 > доменном уровне различны — важно для аналитики (Валентин #6).
+
+> **No-show — специфика VOTE (решение Валентина 2026-06-26, поддержана позиция Павла).**
+> `order_vote_no_show` существует **только** для VOTE: клиент выбрал **конкретного** водителя, тот прибыл
+> (или должен был), а клиент не появился. Для DIRECT/OFFER отдельного терминала «не приехал» **намеренно
+> нет** — там «не доехали» имеет разные причины (водитель не приехал / отменил; клиент отменил; истекло
+> ожидание; не дозвонились), и закрывается **ручной отменой** пассажира (→ `order_cancelled`). Новых
+> состояний не вводим (принцип «не плодить состояния без бизнес-правила»). На будущее различаем **событие**
+> (`pickup_timeout`), а не терминал: оно разрешается по режиму (VOTE→`order_vote_no_show`,
+> DIRECT/OFFER→`order_cancelled`) — [fsm-core-design.md](fsm-core-design.md) §5a, [events.md](events.md) §4.
 
 ### Ветки по режимам (различимы в Domain FSM)
 
@@ -159,6 +175,8 @@ DRIVER_ASSIGNED → EN_ROUTE/HEADING_TO_PICKUP → ARRIVAL
 - `EN_ROUTE` между ASSIGNED и ARRIVAL;
 - `BOARDING_VERIFICATION` как отдельное состояние;
 - `RE_MATCHING` / `RE_ASSIGNMENT` вместо безусловного CANCELLED при отказе водителя;
-- `NO_SHOW_DRIVER`.
+- `NO_SHOW_DRIVER` — **один универсальный** будущий терминал (не per-mode), только при появлении
+  бизнес-правила; вводится **событием** `pickup_timeout`, а не отдельным `*_no_show` на режим. На MVP
+  его нет: VOTE использует `order_vote_no_show`, DIRECT/OFFER — ручную отмену (§1a, решение 2026-06-26).
 
 См. [events.md](events.md) (каталог событий), [timers.md](timers.md) (таймеры), [commands.md](commands.md) (команды боту → заказу).
