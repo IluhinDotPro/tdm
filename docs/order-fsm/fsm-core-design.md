@@ -218,6 +218,13 @@ OFFER:  order_created → order_offer_waiting → order_driver_assigned
 > `order_release_candidate` (T7) · `order_select_offer` (T9) · `order_arrive` (T10) · `order_start` (T11) ·
 > `order_finish` (T12) · `order_interrupt_ride` (T13) · `order_cancel_by_client` (T14) · `order_expire`
 > (T15) · `order_no_show` (T16). Всего 13 действий, 21 строка переходов в seed.
+>
+> **🟢 Обновление seed v2 (2026-06-30, Иван):** граф НЕ изменён (те же 12/13/21). `fsm_transitions`
+> расширена forward-compat полями `guard_name` / `guard_params` / `effect_name` / `effect_params` /
+> `timer_name` / `timer_params` (ALTER идемпотентны, значения NULL), и теми же опциональными полями —
+> `TransitionSpec` в `fsm_spec.py`. Это закладывает декларативные guard/effect/timer на переходах под
+> будущий движок (см. [fsm-engine-rfc.md](fsm-engine-rfc.md) Q1/Q4/Q5/Q7), не меняя поведения. Колонка
+> «Условие / guard» и «Эффекты» ниже — спецификация для этих полей, когда механизм заработает.
 
 | # | From → To | Триггер | Условие / guard | Эффекты (сущности, события) |
 |---|---|---|---|---|
